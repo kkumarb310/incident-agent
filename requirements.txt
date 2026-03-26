@@ -4,3 +4,7 @@ anthropic
 python-dotenv
 chromadb
 sentence-transformers
+presidio-analyzer
+presidio-anonymizer
+spacy
+tenacity
