@@ -216,4 +216,4 @@ export default function TriagePage() {
       )}
     </div>
   );
-}
+}   

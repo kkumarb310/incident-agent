@@ -8,6 +8,8 @@ from app.feedback.store import save_feedback, load_feedback, load_flagged
 from app.observability.logger import load_metrics, load_audit
 from collections import Counter
 import statistics
+from app.database.operations import get_metrics_summary
+
 
 load_dotenv()
 
@@ -16,7 +18,10 @@ app = FastAPI(title="Incident Agent")
 # Allow React frontend to call this API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001"
+    ],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -44,23 +49,10 @@ def feedback(payload: Feedback):
 
 @app.get("/metrics")
 def get_metrics():
-    metrics = load_metrics()
-    if not metrics:
+    summary = get_metrics_summary()
+    if not summary:
         return {"message": "No metrics yet. Run some incidents first."}
-    latencies  = [m["latency_ms"] for m in metrics if m.get("latency_ms")]
-    scores     = [m["eval_score"] for m in metrics if m.get("eval_score")]
-    severities = Counter(m["severity"] for m in metrics if m.get("severity"))
-    models     = Counter(m["model_used"] for m in metrics if m.get("model_used"))
-    return {
-        "total_incidents":    len(metrics),
-        "avg_latency_ms":     round(statistics.mean(latencies), 1) if latencies else 0,
-        "avg_eval_score":     round(statistics.mean(scores), 2) if scores else 0,
-        "severity_breakdown": dict(severities),
-        "model_usage":        dict(models),
-        "pass_rate":          round(
-            sum(1 for m in metrics if m.get("eval_passed")) / len(metrics), 2
-        )
-    }
+    return summary
 
 @app.get("/audit")
 def get_audit():

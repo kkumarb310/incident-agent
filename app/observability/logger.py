@@ -1,36 +1,28 @@
-import json
 import time
-from pathlib import Path
+from app.database.db import init_db
+from app.database.operations import (
+    insert_audit_log,
+    insert_metric,
+    get_all_metrics,
+    get_all_audit
+)
 
-AUDIT_FILE   = Path("audit_log.jsonl")
-METRICS_FILE = Path("metrics_log.jsonl")
+# Initialize database tables on import
+init_db()
 
 def audit_log(entry: dict):
-    """Write one audit entry — permanent record of every request."""
+    """Write one audit entry to SQLite."""
     entry["timestamp"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-
-    with open(AUDIT_FILE, "a") as f:
-        f.write(json.dumps(entry) + "\n")
-
-    print(f"[Audit] {json.dumps(entry, indent=2)}")
+    insert_audit_log(entry)
+    print(f"[Audit] request_id={entry.get('request_id')} severity={entry.get('severity')} latency={entry.get('latency_ms')}ms")
 
 def record_metric(entry: dict):
-    """Write one metrics entry — latency, model, eval score."""
+    """Write one metrics entry to SQLite."""
     entry["timestamp"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-
-    with open(METRICS_FILE, "a") as f:
-        f.write(json.dumps(entry) + "\n")
+    insert_metric(entry)
 
 def load_metrics() -> list[dict]:
-    """Load all metrics for the dashboard."""
-    if not METRICS_FILE.exists():
-        return []
-    with open(METRICS_FILE) as f:
-        return [json.loads(line) for line in f if line.strip()]
+    return get_all_metrics()
 
 def load_audit() -> list[dict]:
-    """Load all audit entries."""
-    if not AUDIT_FILE.exists():
-        return []
-    with open(AUDIT_FILE) as f:
-        return [json.loads(line) for line in f if line.strip()]
+    return get_all_audit()
