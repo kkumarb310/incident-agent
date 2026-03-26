@@ -1,26 +1,35 @@
 # AI Incident Management Agent
 
-An enterprise-grade multi-agent AI system for incident triage built with Python, FastAPI, and Claude (Anthropic). The system uses RAG (Retrieval Augmented Generation) to ground responses in past incidents, evaluates its own output quality, masks PII for compliance, and logs every request for auditability.
+An enterprise-grade multi-agent AI system for incident triage built with Python, FastAPI, React, and Claude (Anthropic). The system uses RAG (Retrieval Augmented Generation) to ground responses in past incidents, evaluates its own output quality, masks PII for compliance, stores everything in SQLite, and provides a full React dashboard.
+
+---
+
+## Live Demo
+
+| Interface | URL |
+|---|---|
+| React Dashboard | http://localhost:3000 |
+| FastAPI Docs | http://localhost:8000/docs |
+| Health Check | http://localhost:8000/health |
 
 ---
 
 ## Architecture
 
 ```
-Incoming Incident
-       ↓
-  PII Masking (Presidio)
-       ↓
-  Orchestrator
-  ├── Retrieval Agent   → ChromaDB semantic search → top 3 similar incidents
-  ├── Analysis Agent    → Claude → severity, root cause, confidence
-  └── Recommendation Agent → Claude → immediate actions, fix steps
-       ↓
-  Evaluator (Claude-as-judge) → accuracy, hallucination, quality scores
-       ↓
-  Audit Log + Metrics
-       ↓
-  JSON Response
+React Frontend (port 3000)
+        ↓  HTTP
+FastAPI Gateway (port 8000)
+        ↓
+   Orchestrator
+   ├── PII Masking (Presidio)
+   ├── Retrieval Agent   → ChromaDB semantic search → top 3 similar incidents
+   ├── Analysis Agent    → Claude → severity, root cause, confidence
+   └── Recommendation Agent → Claude → immediate actions, fix steps
+        ↓
+   Evaluator (Claude-as-judge) → accuracy, hallucination, quality
+        ↓
+   SQLite Database → audit log, metrics, feedback
 ```
 
 ---
@@ -28,13 +37,14 @@ Incoming Incident
 ## Features
 
 - **Multi-agent orchestration** — three specialized agents each with a single responsibility
-- **RAG pipeline** — past incidents embedded in ChromaDB, retrieved via semantic search
+- **RAG pipeline** — 30 past incidents embedded in ChromaDB, retrieved via semantic search
 - **PII masking** — emails, IPs, names stripped before reaching the LLM
 - **Evaluation framework** — Claude grades its own responses for accuracy and hallucination
 - **Feedback loop** — user scores collected, low scores auto-flagged for prompt review
 - **Resilience** — retry with exponential backoff + automatic fallback model
-- **Audit logging** — append-only JSONL log of every request for compliance
-- **Observability** — latency, eval scores, model usage tracked per request
+- **SQLite database** — all audit logs, metrics, and feedback stored with SQL queries
+- **React frontend** — submit incidents and view metrics from a clean dashboard
+- **39 pytest tests** — full test coverage across all agents and endpoints
 
 ---
 
@@ -42,12 +52,15 @@ Incoming Incident
 
 | Component | Technology |
 |---|---|
+| Frontend | React, Axios |
 | API framework | FastAPI |
-| LLM | Anthropic Claude (Sonnet + Haiku fallback) |
+| LLM | Anthropic Claude (Sonnet primary, Haiku fallback) |
 | Vector database | ChromaDB |
 | Embeddings | sentence-transformers (all-MiniLM-L6-v2) |
 | PII masking | Microsoft Presidio |
+| Database | SQLite |
 | Resilience | Tenacity (retry + backoff) |
+| Testing | pytest |
 | Language | Python 3.11+ |
 
 ---
@@ -57,33 +70,52 @@ Incoming Incident
 ```
 incident-agent/
 ├── app/
-│   ├── main.py                     # FastAPI endpoints
+│   ├── main.py                        # FastAPI endpoints + CORS
 │   ├── agents/
-│   │   ├── orchestrator.py         # Coordinates all agents
-│   │   ├── retrieval_agent.py      # Fetches similar incidents
-│   │   ├── analysis_agent.py       # Diagnoses severity + root cause
-│   │   └── recommendation_agent.py # Generates fix steps
+│   │   ├── orchestrator.py            # Coordinates all agents
+│   │   ├── retrieval_agent.py         # Fetches similar incidents
+│   │   ├── analysis_agent.py          # Diagnoses severity + root cause
+│   │   └── recommendation_agent.py   # Generates fix steps
 │   ├── llm/
-│   │   └── claude_client.py        # Shared Claude client with retry + fallback
+│   │   └── claude_client.py           # Shared Claude client with retry + fallback
 │   ├── rag/
-│   │   ├── ingest.py               # Embeds incidents into ChromaDB
-│   │   └── retrieval.py            # Semantic search
+│   │   ├── ingest.py                  # Embeds incidents into ChromaDB
+│   │   └── retrieval.py               # Semantic search
 │   ├── compliance/
-│   │   └── pii.py                  # PII detection and masking
+│   │   └── pii.py                     # PII detection and masking
 │   ├── observability/
-│   │   └── logger.py               # Audit log + metrics
+│   │   └── logger.py                  # Audit log + metrics
 │   ├── eval/
-│   │   └── evaluator.py            # Claude-as-judge evaluation
-│   └── feedback/
-│       └── store.py                # Feedback storage + auto-flagging
+│   │   └── evaluator.py               # Claude-as-judge evaluation
+│   ├── feedback/
+│   │   └── store.py                   # Feedback storage + auto-flagging
+│   └── database/
+│       ├── db.py                      # SQLite connection + table creation
+│       └── operations.py              # SQL insert and query operations
+├── frontend/
+│   ├── src/
+│   │   ├── App.js                     # Main app + navigation
+│   │   ├── App.css                    # Styling
+│   │   ├── api.js                     # API calls to FastAPI
+│   │   └── pages/
+│   │       ├── TriagePage.js          # Submit incidents + view results
+│   │       └── MetricsPage.js         # Observability dashboard
+│   └── package.json
+├── tests/
+│   ├── conftest.py                    # Shared fixtures and mocks
+│   ├── test_pii.py                    # PII masking tests
+│   ├── test_retrieval.py              # RAG retrieval tests
+│   ├── test_analysis_agent.py         # Analysis agent tests
+│   ├── test_recommendation_agent.py   # Recommendation agent tests
+│   ├── test_orchestrator.py           # Full pipeline tests
+│   └── test_api.py                    # FastAPI endpoint tests
 ├── data/
-│   └── incidents.json              # Sample past incidents knowledge base
-├── audit_log.jsonl                 # Auto-generated audit trail
-├── metrics_log.jsonl               # Auto-generated metrics
-├── feedback_log.jsonl              # Auto-generated feedback
-├── flagged_log.jsonl               # Auto-generated flagged responses
-├── .env                            # API keys (never commit this)
+│   └── incidents.json                 # 30 past incidents knowledge base
+├── incidents.db                       # SQLite database (auto-generated)
+├── chroma_data/                       # Vector database (auto-generated)
+├── .env                               # API keys (never commit this)
 ├── .gitignore
+├── pytest.ini
 └── requirements.txt
 ```
 
@@ -98,7 +130,7 @@ git clone https://github.com/your-username/incident-agent.git
 cd incident-agent
 ```
 
-### 2. Create and activate virtual environment
+### 2. Create virtual environment
 
 ```bash
 python -m venv venv
@@ -133,19 +165,28 @@ Get your API key from [console.anthropic.com](https://console.anthropic.com)
 python app/rag/ingest.py
 ```
 
-This embeds the sample incidents into ChromaDB. Run once — data persists to disk.
+Embeds 30 past incidents into ChromaDB. Run once — data persists to disk.
 
-### 6. Start the server
+### 6. Start the backend
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-### 7. Test it
+### 7. Start the frontend
 
-Open your browser at:
+Open a second terminal:
+
+```bash
+cd frontend
+npm install
+npm start
 ```
-http://127.0.0.1:8000/docs
+
+### 8. Open the dashboard
+
+```
+http://localhost:3000
 ```
 
 ---
@@ -197,85 +238,91 @@ Triages an incident through the full multi-agent pipeline.
 }
 ```
 
----
-
 ### `POST /feedback`
-Submit a score for a triage response. Scores of 1-2 are auto-flagged for prompt review.
-
-```json
-{
-  "request_id": "a3f2b1c4",
-  "score": 5,
-  "comment": "Accurate and actionable"
-}
-```
-
----
+Submit a score (1-5) for a triage response. Scores of 1-2 are auto-flagged.
 
 ### `GET /metrics`
-Returns aggregated observability metrics.
-
-```json
-{
-  "total_incidents": 12,
-  "avg_latency_ms": 9800,
-  "avg_eval_score": 4.6,
-  "severity_breakdown": {"P1": 5, "P2": 6, "P3": 1},
-  "model_usage": {"claude-sonnet-4-5": 11, "claude-haiku-4-5-20251001": 1},
-  "pass_rate": 0.92
-}
-```
-
----
+Returns aggregated metrics from SQLite — latency, eval scores, severity breakdown.
 
 ### `GET /audit`
-Returns the full audit trail of all requests.
-
----
+Returns full audit trail of all requests.
 
 ### `GET /feedback/summary`
 Returns feedback statistics and flagged response count.
-
----
 
 ### `GET /health`
 Health check endpoint.
 
 ---
 
+## Running Tests
+
+```bash
+pytest
+```
+
+Expected output:
+```
+39 passed in X.XXs
+```
+
+Run specific test files:
+```bash
+pytest tests/test_pii.py        # PII masking tests
+pytest tests/test_api.py -v     # API tests verbose
+pytest -k "test_masks"          # Tests matching a name
+```
+
+---
+
 ## How RAG Works
 
-1. On startup, `ingest.py` converts past incidents into 384-dimensional embedding vectors using `sentence-transformers`
+1. `ingest.py` converts 30 past incidents into 384-dimensional embedding vectors
 2. Vectors are stored in ChromaDB on disk
-3. On each `/triage` request, the incident description is embedded and compared against all stored vectors
+3. On each `/triage` request, the description is embedded and compared against all stored vectors
 4. The 3 most semantically similar past incidents are retrieved
 5. These are passed as context to Claude alongside the new incident
 
-This grounds Claude's responses in your actual incident history rather than general training data.
+This grounds Claude's responses in your actual incident history.
 
 ---
 
 ## How Evaluation Works
 
-After every triage response, the evaluator sends the incident, retrieved context, and AI response back to Claude with a scoring prompt. Claude evaluates:
+After every triage response, Claude evaluates itself on:
 
-- **Accuracy score (1-5)** — is the diagnosis correct given the context?
-- **Hallucination detected** — does the response contain claims not in the context?
-- **Quality score (1-5)** — are the recommendations actionable and complete?
+- **Accuracy (1-5)** — is the diagnosis correct given the context?
+- **Hallucination** — does the response contain claims not in the retrieved context?
+- **Quality (1-5)** — are the recommendations actionable?
 
-Responses pass if: accuracy >= 3, no hallucination detected, and recommendations are actionable.
+Responses pass if accuracy >= 3, no hallucination, and recommendations are actionable.
+
+---
+
+## Database Schema
+
+```sql
+audit_log   — request_id, severity, model_used, pii_masked, eval_score, latency_ms
+metrics     — request_id, severity, latency_ms, model_used, eval_score, eval_passed
+feedback    — request_id, score, comment, flagged
+flagged     — request_id, score, comment (low-scored responses only)
+```
+
+---
+
+## Interview Pitch
+
+> "I built an enterprise-grade multi-agent AI system for incident management using Python, FastAPI, React, and Claude. The pipeline has three specialized agents — retrieval, analysis, and recommendation — coordinated by an orchestrator. I used RAG with ChromaDB so responses are grounded in 30 real past incidents. The system includes PII masking with Presidio before any data touches the LLM, SQLite for audit logging and metrics, and an evaluation framework where Claude grades its own responses for accuracy and hallucination. A feedback loop auto-flags low-scored responses for prompt review. The React frontend provides a live triage interface and observability dashboard. I also wrote 39 pytest tests covering every layer. This mirrors real AI operations in regulated environments like banking."
 
 ---
 
 ## Adding More Incidents
 
-Edit `data/incidents.json` to add real incidents from your environment, then re-run:
+Edit `data/incidents.json` then re-run:
 
 ```bash
 python app/rag/ingest.py
 ```
-
-The more incidents you add, the better the retrieval quality.
 
 ---
 
@@ -283,7 +330,7 @@ The more incidents you add, the better the retrieval quality.
 
 | Variable | Description |
 |---|---|
-| `ANTHROPIC_API_KEY` | Your Anthropic API key from console.anthropic.com |
+| `ANTHROPIC_API_KEY` | Your Anthropic API key |
 
 ---
 
