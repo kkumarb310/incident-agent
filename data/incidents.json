@@ -2,7 +2,7 @@
   {
     "id": "INC001",
     "title": "Database connection pool exhausted",
-    "description": "PostgreSQL connection pool hit max limit of 100. Applications throwing connection timeout errors.",
+    "description": "PostgreSQL connection pool hit max limit of 100. Applications throwing connection timeout errors. Affected services: orders-api, payments-api.",
     "root_cause": "Slow queries holding connections. Missing index on orders.created_at",
     "resolution": "Added index, increased pool size to 200, killed long-running queries",
     "severity": "P1"
@@ -10,7 +10,7 @@
   {
     "id": "INC002",
     "title": "Memory leak in user-service",
-    "description": "user-service pod memory climbing steadily. OOMKilled after hitting 2GB limit.",
+    "description": "user-service pod memory climbing steadily over 6 hours. OOMKilled after hitting 2GB limit. Auth failures cascading.",
     "root_cause": "Unclosed HTTP client sessions in async handlers",
     "resolution": "Patched session cleanup, rolled deployment, added memory alert at 80%",
     "severity": "P2"
@@ -18,25 +18,225 @@
   {
     "id": "INC003",
     "title": "Redis cache eviction causing DB overload",
-    "description": "Redis maxmemory policy evicting keys during traffic spike. All requests hitting Postgres.",
-    "root_cause": "Redis memory undersized for peak load",
-    "resolution": "Increased Redis memory, switched policy, added cache warming",
+    "description": "Redis maxmemory policy set to allkeys-lru. Mass eviction during traffic spike. All requests hitting Postgres directly.",
+    "root_cause": "Redis memory undersized for peak load. No cache warming strategy.",
+    "resolution": "Increased Redis memory, switched to volatile-lru, added cache warming on deploy",
     "severity": "P2"
   },
   {
     "id": "INC004",
     "title": "SSL certificate expiry on payments gateway",
-    "description": "payments.example.com SSL cert expired. Checkout flow broken for all users.",
-    "root_cause": "Certificate renewal cron job failed silently",
-    "resolution": "Renewed cert manually, fixed cron, added expiry alerts",
+    "description": "payments.example.com SSL cert expired at 03:00 UTC. Checkout flow broken for all users. Revenue impact.",
+    "root_cause": "Certificate renewal cron job failed silently 30 days prior",
+    "resolution": "Renewed cert manually, fixed cron, added 30/7/1 day expiry alerts",
     "severity": "P1"
   },
   {
     "id": "INC005",
     "title": "Kafka consumer lag spike",
-    "description": "Notifications consumer group lag reached 2M messages. Push notifications delayed 4 hours.",
-    "root_cause": "Downstream email provider rate-limiting consumer",
-    "resolution": "Added circuit breaker, scaled consumer replicas from 2 to 8",
+    "description": "Notifications consumer group lag reached 2M messages. Push notifications delayed by 4+ hours.",
+    "root_cause": "Downstream email provider rate-limiting causing consumer to slow down",
+    "resolution": "Added provider circuit breaker, scaled consumer replicas from 2 to 8",
     "severity": "P2"
+  },
+  {
+    "id": "INC006",
+    "title": "Kubernetes pod crash loop on checkout service",
+    "description": "checkout-service pods entering CrashLoopBackOff after deployment. Liveness probe failing. 100% error rate on checkout.",
+    "root_cause": "New environment variable DATABASE_URL missing from deployment config",
+    "resolution": "Added missing env var to Kubernetes secret, redeployed, added config validation on startup",
+    "severity": "P1"
+  },
+  {
+    "id": "INC007",
+    "title": "Disk space exhaustion on logging server",
+    "description": "Logging server disk at 100%. Log ingestion stopped. Application logs lost. Monitoring alerts silenced.",
+    "root_cause": "Log rotation policy disabled after last config change. Logs accumulated for 3 weeks.",
+    "resolution": "Cleared old logs, re-enabled rotation, set 80% disk alert, moved to log shipping to S3",
+    "severity": "P2"
+  },
+  {
+    "id": "INC008",
+    "title": "API rate limiting causing customer failures",
+    "description": "Third-party payment processor returning 429 Too Many Requests. 30% of payment attempts failing during peak hours.",
+    "root_cause": "No rate limiting on our side. Traffic spike caused by marketing campaign exceeded provider limits.",
+    "resolution": "Implemented token bucket rate limiter, added request queuing, negotiated higher limits with provider",
+    "severity": "P1"
+  },
+  {
+    "id": "INC009",
+    "title": "DNS resolution failure in production",
+    "description": "Internal services unable to resolve each other. Service mesh broken. All inter-service calls failing with NXDOMAIN.",
+    "root_cause": "CoreDNS config overwritten during Kubernetes upgrade. Custom DNS entries lost.",
+    "resolution": "Restored CoreDNS configmap from backup, added DNS config to GitOps repo, added DNS smoke tests",
+    "severity": "P1"
+  },
+  {
+    "id": "INC010",
+    "title": "S3 bucket permissions misconfiguration",
+    "description": "User profile images returning 403 Forbidden. Image upload endpoint returning 500. All new user signups broken.",
+    "root_cause": "IAM policy rotation removed s3:PutObject and s3:GetObject permissions from app role",
+    "resolution": "Restored IAM permissions, added IAM policy tests to CI pipeline, added permission validation on deploy",
+    "severity": "P2"
+  },
+  {
+    "id": "INC011",
+    "title": "High CPU on search service",
+    "description": "search-service CPU at 98% for 2 hours. Response times degraded from 120ms to 8000ms. Search results timing out.",
+    "root_cause": "Elasticsearch query missing index. Full table scan triggered by new wildcard search feature.",
+    "resolution": "Added composite index for search fields, added query timeout of 2s, added query explain logging",
+    "severity": "P2"
+  },
+  {
+    "id": "INC012",
+    "title": "Deployment rollback required after bad migration",
+    "description": "Database migration added NOT NULL column without default. Existing rows failing validation. API returning 500 on all reads.",
+    "root_cause": "Migration not tested against production data volume. Dev database had no existing rows.",
+    "resolution": "Rolled back migration, added DEFAULT value, re-ran migration with zero downtime strategy",
+    "severity": "P1"
+  },
+  {
+    "id": "INC013",
+    "title": "Message queue deadlock",
+    "description": "RabbitMQ queue depth growing unbounded. Consumers stuck. 45 minute processing backlog building up.",
+    "root_cause": "Consumer holding message lock while waiting for DB response. DB timeout causing lock to never release.",
+    "resolution": "Set message acknowledgement timeout, added dead letter queue, fixed DB connection timeout",
+    "severity": "P2"
+  },
+  {
+    "id": "INC014",
+    "title": "CDN misconfiguration serving stale content",
+    "description": "Users seeing outdated UI after frontend deployment. Cache-Control headers set to max-age=86400. New JS files not loading.",
+    "root_cause": "CDN cache invalidation not triggered as part of deployment pipeline",
+    "resolution": "Added CDN invalidation step to CI/CD, set immutable caching on hashed assets, short TTL on index.html",
+    "severity": "P2"
+  },
+  {
+    "id": "INC015",
+    "title": "gRPC service timeout cascade",
+    "description": "inventory-service gRPC calls timing out after 500ms. Callers retrying aggressively. Thundering herd causing total service failure.",
+    "root_cause": "Default gRPC timeout too low. Retry logic without backoff amplified load 10x.",
+    "resolution": "Increased timeout to 5s, added exponential backoff, added circuit breaker to stop cascade",
+    "severity": "P1"
+  },
+  {
+    "id": "INC016",
+    "title": "JWT secret rotation breaking auth",
+    "description": "All users suddenly logged out. All API calls returning 401 Unauthorized. Auth service rejecting all tokens.",
+    "root_cause": "JWT secret rotated in production without invalidating existing sessions or supporting dual secrets during transition",
+    "resolution": "Restored old secret temporarily, implemented dual-secret validation during rotation window, gradual rollout",
+    "severity": "P1"
+  },
+  {
+    "id": "INC017",
+    "title": "Elasticsearch index corruption",
+    "description": "Search returning incomplete results. Some documents missing from index. Index health showing RED status.",
+    "root_cause": "Shard allocation failed during node restart. Unassigned shards causing partial index.",
+    "resolution": "Force-allocated unassigned shards, triggered reindex from primary store, added shard health monitoring",
+    "severity": "P2"
+  },
+  {
+    "id": "INC018",
+    "title": "Load balancer health check misconfigured",
+    "description": "Load balancer routing traffic to unhealthy instances. 40% of requests failing. Instances showing healthy in LB but returning 500.",
+    "root_cause": "Health check endpoint returning 200 even when database connection was unavailable",
+    "resolution": "Fixed health check to validate DB connectivity, added deep health check endpoint, updated LB config",
+    "severity": "P1"
+  },
+  {
+    "id": "INC019",
+    "title": "Cron job running duplicate payments",
+    "description": "Payment processing cron ran twice due to daylight saving time change. Customers charged twice. Finance alerted.",
+    "root_cause": "Cron schedule in local timezone. DST caused job to execute at same UTC time twice.",
+    "resolution": "Migrated all cron schedules to UTC, added idempotency key on payment processor, added duplicate payment detection",
+    "severity": "P1"
+  },
+  {
+    "id": "INC020",
+    "title": "Container registry pull rate limit",
+    "description": "Kubernetes pods failing to start. ImagePullBackOff on all new deployments. Docker Hub rate limit hit.",
+    "root_cause": "Anonymous pulls from Docker Hub hitting 100 pulls/6hr limit during scaling event",
+    "resolution": "Added Docker Hub credentials to Kubernetes pull secret, migrated critical images to private ECR registry",
+    "severity": "P2"
+  },
+  {
+    "id": "INC021",
+    "title": "Database replica lag causing stale reads",
+    "description": "Users seeing outdated order status after updates. Reads going to replica lagging 45 seconds behind primary.",
+    "root_cause": "Long-running analytics query on replica blocking replication thread",
+    "resolution": "Killed analytics query, routed analytics to dedicated read replica, added replica lag alert at 5s",
+    "severity": "P2"
+  },
+  {
+    "id": "INC022",
+    "title": "Secret manager quota exceeded",
+    "description": "Application unable to fetch secrets at startup. AWS Secrets Manager returning ThrottlingException. Services failing to start.",
+    "root_cause": "Each pod fetching secrets individually on startup. 50 pod scaling event caused 500 simultaneous API calls.",
+    "resolution": "Implemented secrets caching with TTL, used init container to fetch once per node, requested quota increase",
+    "severity": "P2"
+  },
+  {
+    "id": "INC023",
+    "title": "Network partition between availability zones",
+    "description": "Services in AZ-1 unable to reach services in AZ-2. 50% of requests failing. Database writes succeeding but reads failing.",
+    "root_cause": "AWS security group rule change blocked cross-AZ traffic on port 8080",
+    "resolution": "Restored security group rule, added network connectivity tests to monitoring, added change approval for SG rules",
+    "severity": "P1"
+  },
+  {
+    "id": "INC024",
+    "title": "Webhook delivery failures",
+    "description": "Customer webhooks failing to deliver. Retry queue backing up with 100k undelivered events. Customers not receiving order updates.",
+    "root_cause": "Customer endpoint SSL certificate expired. Our webhook service failing silently on SSL errors.",
+    "resolution": "Added SSL validation error logging, implemented dead letter queue for failed webhooks, added customer notification for failed endpoints",
+    "severity": "P2"
+  },
+  {
+    "id": "INC025",
+    "title": "Terraform state lock not released",
+    "description": "All infrastructure deployments blocked. Terraform reporting state lock held by previous run. Team unable to deploy any changes.",
+    "root_cause": "Terraform apply interrupted mid-run by CI timeout. DynamoDB lock not released on failure.",
+    "resolution": "Manually released DynamoDB lock, verified infrastructure consistency, added CI timeout of 45min with lock release on failure",
+    "severity": "P2"
+  },
+  {
+    "id": "INC026",
+    "title": "API gateway timeout on file upload endpoint",
+    "description": "Large file uploads failing with 504 Gateway Timeout. Files under 5MB succeeding. Files over 5MB failing at exactly 29 seconds.",
+    "root_cause": "API gateway default timeout of 29 seconds. Large uploads exceeding limit.",
+    "resolution": "Increased gateway timeout to 120s for upload endpoint, implemented multipart upload, added progress indicator",
+    "severity": "P2"
+  },
+  {
+    "id": "INC027",
+    "title": "Full text search degraded after index rebuild",
+    "description": "Search relevance severely degraded after nightly index rebuild. Irrelevant results appearing at top. Customer complaints spike.",
+    "root_cause": "Index rebuild overwrote custom analyzer settings. Default analyzer used instead of custom tokenizer.",
+    "resolution": "Restored index settings from backup, added index settings to version control, added relevance regression tests",
+    "severity": "P2"
+  },
+  {
+    "id": "INC028",
+    "title": "Background job queue flooding",
+    "description": "Email sending job queue reached 1 million pending jobs. Email delivery delayed by 8 hours. New jobs not being processed.",
+    "root_cause": "Email provider outage caused jobs to fail and requeue infinitely without backoff. No max retry limit.",
+    "resolution": "Added max retry of 5 with exponential backoff, added dead letter queue, added queue depth alert at 10k",
+    "severity": "P2"
+  },
+  {
+    "id": "INC029",
+    "title": "Kubernetes node not ready",
+    "description": "3 out of 10 nodes showing NotReady status. Pods being evicted and rescheduled constantly. Service instability.",
+    "root_cause": "Node disk pressure due to accumulated container image layers. kubelet unable to run.",
+    "resolution": "Ran docker image prune on affected nodes, added node disk alert at 70%, set imagePullPolicy to IfNotPresent",
+    "severity": "P2"
+  },
+  {
+    "id": "INC030",
+    "title": "OAuth token endpoint returning 500",
+    "description": "All OAuth login flows broken. Users unable to sign in. Third-party integrations all failing. Token refresh also broken.",
+    "root_cause": "Redis used for token storage hit maxmemory limit. New token writes failing silently.",
+    "resolution": "Increased Redis memory limit, added eviction policy noeviction for auth Redis, added token write error alerting",
+    "severity": "P1"
   }
 ]
