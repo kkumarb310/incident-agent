@@ -1,0 +1,77 @@
+import os
+from dotenv import load_dotenv
+from fastapi import FastAPI
+from pydantic import BaseModel
+from app.agents.orchestrator import run as orchestrate
+from app.feedback.store import save_feedback, load_feedback, load_flagged
+from app.observability.logger import load_metrics, load_audit
+from collections import Counter
+import statistics
+
+load_dotenv()
+
+app = FastAPI(title="Incident Agent")
+
+class Incident(BaseModel):
+    title: str
+    description: str
+
+class Feedback(BaseModel):
+    request_id: str
+    score: int        # 1 to 5
+    comment: str = ""
+
+@app.post("/triage")
+def triage(incident: Incident):
+    return orchestrate(incident.dict())
+
+@app.post("/feedback")
+def feedback(payload: Feedback):
+    entry = save_feedback(payload.dict())
+    return {
+        "status": "recorded",
+        "flagged": entry.get("flagged", False)
+    }
+
+@app.get("/metrics")
+def get_metrics():
+    metrics = load_metrics()
+    if not metrics:
+        return {"message": "No metrics yet. Run some incidents first."}
+
+    latencies  = [m["latency_ms"] for m in metrics if m.get("latency_ms")]
+    scores     = [m["eval_score"] for m in metrics if m.get("eval_score")]
+    severities = Counter(m["severity"] for m in metrics if m.get("severity"))
+    models     = Counter(m["model_used"] for m in metrics if m.get("model_used"))
+
+    return {
+        "total_incidents":  len(metrics),
+        "avg_latency_ms":   round(statistics.mean(latencies), 1) if latencies else 0,
+        "avg_eval_score":   round(statistics.mean(scores), 2) if scores else 0,
+        "severity_breakdown": dict(severities),
+        "model_usage":      dict(models),
+        "pass_rate":        round(
+            sum(1 for m in metrics if m.get("eval_passed")) / len(metrics), 2
+        )
+    }
+
+@app.get("/audit")
+def get_audit():
+    return {"entries": load_audit()}
+
+@app.get("/feedback/summary")
+def feedback_summary():
+    all_fb = load_feedback()
+    if not all_fb:
+        return {"message": "No feedback yet"}
+    scores = [f["score"] for f in all_fb if "score" in f]
+    return {
+        "total":        len(all_fb),
+        "average_score": round(sum(scores) / len(scores), 2),
+        "flagged":      len(load_flagged()),
+        "breakdown":    {str(i): scores.count(i) for i in range(1, 6)}
+    }
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}

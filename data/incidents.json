@@ -1,0 +1,42 @@
+[
+  {
+    "id": "INC001",
+    "title": "Database connection pool exhausted",
+    "description": "PostgreSQL connection pool hit max limit of 100. Applications throwing connection timeout errors.",
+    "root_cause": "Slow queries holding connections. Missing index on orders.created_at",
+    "resolution": "Added index, increased pool size to 200, killed long-running queries",
+    "severity": "P1"
+  },
+  {
+    "id": "INC002",
+    "title": "Memory leak in user-service",
+    "description": "user-service pod memory climbing steadily. OOMKilled after hitting 2GB limit.",
+    "root_cause": "Unclosed HTTP client sessions in async handlers",
+    "resolution": "Patched session cleanup, rolled deployment, added memory alert at 80%",
+    "severity": "P2"
+  },
+  {
+    "id": "INC003",
+    "title": "Redis cache eviction causing DB overload",
+    "description": "Redis maxmemory policy evicting keys during traffic spike. All requests hitting Postgres.",
+    "root_cause": "Redis memory undersized for peak load",
+    "resolution": "Increased Redis memory, switched policy, added cache warming",
+    "severity": "P2"
+  },
+  {
+    "id": "INC004",
+    "title": "SSL certificate expiry on payments gateway",
+    "description": "payments.example.com SSL cert expired. Checkout flow broken for all users.",
+    "root_cause": "Certificate renewal cron job failed silently",
+    "resolution": "Renewed cert manually, fixed cron, added expiry alerts",
+    "severity": "P1"
+  },
+  {
+    "id": "INC005",
+    "title": "Kafka consumer lag spike",
+    "description": "Notifications consumer group lag reached 2M messages. Push notifications delayed 4 hours.",
+    "root_cause": "Downstream email provider rate-limiting consumer",
+    "resolution": "Added circuit breaker, scaled consumer replicas from 2 to 8",
+    "severity": "P2"
+  }
+]

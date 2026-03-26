@@ -1,0 +1,11 @@
+### Health check
+GET http://localhost:8000/health
+
+### Triage an incident
+POST http://localhost:8000/triage
+Content-Type: application/json
+
+{
+  "title": "Database timeouts on orders service",
+  "description": "Orders API throwing connection refused errors. DB pool maxed out at 100 connections."
+}
