@@ -4,15 +4,18 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y \
     build-essential \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-RUN python -m spacy download en_core_web_lg
+RUN python -m spacy download en_core_web_sm
 
 COPY . .
+
+RUN python app/rag/ingest.py
 
 EXPOSE 8000
 

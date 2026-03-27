@@ -13,3 +13,4 @@ tests/
 learn_*.py
 check_db.py
 test.http
+chroma_data/
