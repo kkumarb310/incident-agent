@@ -5,6 +5,7 @@ __pycache__/
 chroma_data/
 incidents.db
 *.jsonl
+frontend/
 frontend/node_modules/
 .git/
 tests/
@@ -13,4 +14,4 @@ tests/
 learn_*.py
 check_db.py
 test.http
-chroma_data/
+incident-agent/
