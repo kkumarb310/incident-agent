@@ -1,6 +1,6 @@
 # AI Incident Management Agent
 
-An enterprise-grade multi-agent AI system for incident triage built with Python, FastAPI, React, and Claude (Anthropic). The system uses RAG (Retrieval Augmented Generation) to ground responses in past incidents, evaluates its own output quality, masks PII for compliance, stores everything in SQLite, and provides a full React dashboard.
+An enterprise-grade multi-agent AI system for incident triage built with Python, FastAPI, React, and Claude (Anthropic). The system uses RAG (Retrieval Augmented Generation) to ground responses in past incidents, evaluates its own output quality, masks PII for compliance, stores everything in SQLite, and provides a full React dashboard — all containerized with Docker.
 
 ---
 
@@ -45,6 +45,7 @@ FastAPI Gateway (port 8000)
 - **SQLite database** — all audit logs, metrics, and feedback stored with SQL queries
 - **React frontend** — submit incidents and view metrics from a clean dashboard
 - **39 pytest tests** — full test coverage across all agents and endpoints
+- **Docker** — fully containerized, runs with one command
 
 ---
 
@@ -60,7 +61,8 @@ FastAPI Gateway (port 8000)
 | PII masking | Microsoft Presidio |
 | Database | SQLite |
 | Resilience | Tenacity (retry + backoff) |
-| Testing | pytest |
+| Testing | pytest (39 tests) |
+| Containerization | Docker + Docker Compose |
 | Language | Python 3.11+ |
 
 ---
@@ -100,6 +102,7 @@ incident-agent/
 │   │   └── pages/
 │   │       ├── TriagePage.js          # Submit incidents + view results
 │   │       └── MetricsPage.js         # Observability dashboard
+│   ├── Dockerfile                     # Frontend container
 │   └── package.json
 ├── tests/
 │   ├── conftest.py                    # Shared fixtures and mocks
@@ -111,6 +114,9 @@ incident-agent/
 │   └── test_api.py                    # FastAPI endpoint tests
 ├── data/
 │   └── incidents.json                 # 30 past incidents knowledge base
+├── Dockerfile                         # Backend container
+├── docker-compose.yml                 # Runs both containers together
+├── .dockerignore                      # Docker build exclusions
 ├── incidents.db                       # SQLite database (auto-generated)
 ├── chroma_data/                       # Vector database (auto-generated)
 ├── .env                               # API keys (never commit this)
@@ -121,16 +127,44 @@ incident-agent/
 
 ---
 
-## Quickstart
+## Quickstart — Docker (recommended)
 
 ### 1. Clone the repo
 
 ```bash
-git clone https://github.com/your-username/incident-agent.git
+git clone https://github.com/kkumarb310/incident-agent.git
 cd incident-agent
 ```
 
-### 2. Create virtual environment
+### 2. Set up environment variables
+
+Create a `.env` file in the project root:
+
+```
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+```
+
+Get your API key from [console.anthropic.com](https://console.anthropic.com)
+
+### 3. Build the knowledge base
+
+```bash
+python app/rag/ingest.py
+```
+
+### 4. Run with Docker
+
+```bash
+docker compose up --build
+```
+
+Open your browser at `http://localhost:3000`
+
+---
+
+## Quickstart — Local (without Docker)
+
+### 1. Create virtual environment
 
 ```bash
 python -m venv venv
@@ -142,38 +176,26 @@ venv\Scripts\activate
 source venv/bin/activate
 ```
 
-### 3. Install dependencies
+### 2. Install dependencies
 
 ```bash
 pip install -r requirements.txt
 python -m spacy download en_core_web_lg
 ```
 
-### 4. Set up environment variables
-
-Create a `.env` file in the project root:
-
-```
-ANTHROPIC_API_KEY=sk-ant-your-key-here
-```
-
-Get your API key from [console.anthropic.com](https://console.anthropic.com)
-
-### 5. Build the knowledge base
+### 3. Build the knowledge base
 
 ```bash
 python app/rag/ingest.py
 ```
 
-Embeds 30 past incidents into ChromaDB. Run once — data persists to disk.
-
-### 6. Start the backend
+### 4. Start the backend
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-### 7. Start the frontend
+### 5. Start the frontend
 
 Open a second terminal:
 
@@ -183,7 +205,7 @@ npm install
 npm start
 ```
 
-### 8. Open the dashboard
+### 6. Open the dashboard
 
 ```
 http://localhost:3000
@@ -191,9 +213,34 @@ http://localhost:3000
 
 ---
 
+## Docker Commands
+
+```bash
+# Start everything
+docker compose up
+
+# Start in background
+docker compose up -d
+
+# Stop everything
+docker compose down
+
+# Rebuild after code changes
+docker compose up --build
+
+# View logs
+docker compose logs backend
+docker compose logs frontend
+
+# View running containers
+docker ps
+```
+
+---
+
 ## API Endpoints
 
-### `POST /triage`
+### POST /triage
 Triages an incident through the full multi-agent pipeline.
 
 **Request:**
@@ -208,29 +255,21 @@ Triages an incident through the full multi-agent pipeline.
 ```json
 {
   "request_id": "a3f2b1c4",
-  "title": "Database timeouts on orders service",
   "analysis": {
     "severity": "P1",
     "root_cause": "PostgreSQL connection pool exhausted",
     "affected_services": ["orders-api", "postgres"],
-    "confidence": 0.95,
-    "model_used": "claude-sonnet-4-5"
+    "confidence": 0.95
   },
   "recommendations": {
-    "immediate_actions": [
-      "Kill idle connections with pg_terminate_backend",
-      "Restart orders service to reset pool",
-      "Check slow query log"
-    ],
+    "immediate_actions": ["Kill idle connections", "Restart service"],
     "root_cause_fix": "Add index on orders.created_at",
     "escalate_to": "Database team",
     "estimated_resolution_mins": 20
   },
   "evaluation": {
-    "accuracy_score": 5,
-    "hallucination_detected": false,
-    "quality_score": 5,
     "overall_score": 5.0,
+    "hallucination_detected": false,
     "passed": true
   },
   "latency_ms": 9200,
@@ -238,20 +277,20 @@ Triages an incident through the full multi-agent pipeline.
 }
 ```
 
-### `POST /feedback`
-Submit a score (1-5) for a triage response. Scores of 1-2 are auto-flagged.
+### POST /feedback
+Submit a score (1-5). Scores of 1-2 are auto-flagged for prompt review.
 
-### `GET /metrics`
-Returns aggregated metrics from SQLite — latency, eval scores, severity breakdown.
+### GET /metrics
+Aggregated metrics — latency, eval scores, severity breakdown.
 
-### `GET /audit`
-Returns full audit trail of all requests.
+### GET /audit
+Full audit trail of every request.
 
-### `GET /feedback/summary`
-Returns feedback statistics and flagged response count.
+### GET /feedback/summary
+Feedback statistics and flagged response count.
 
-### `GET /health`
-Health check endpoint.
+### GET /health
+Health check.
 
 ---
 
@@ -266,36 +305,21 @@ Expected output:
 39 passed in X.XXs
 ```
 
-Run specific test files:
-```bash
-pytest tests/test_pii.py        # PII masking tests
-pytest tests/test_api.py -v     # API tests verbose
-pytest -k "test_masks"          # Tests matching a name
-```
-
 ---
 
 ## How RAG Works
 
-1. `ingest.py` converts 30 past incidents into 384-dimensional embedding vectors
-2. Vectors are stored in ChromaDB on disk
-3. On each `/triage` request, the description is embedded and compared against all stored vectors
+1. ingest.py converts 30 past incidents into 384-dimensional embedding vectors
+2. Vectors stored in ChromaDB on disk
+3. On each /triage request the incident description is embedded and compared against all stored vectors
 4. The 3 most semantically similar past incidents are retrieved
 5. These are passed as context to Claude alongside the new incident
-
-This grounds Claude's responses in your actual incident history.
 
 ---
 
 ## How Evaluation Works
 
-After every triage response, Claude evaluates itself on:
-
-- **Accuracy (1-5)** — is the diagnosis correct given the context?
-- **Hallucination** — does the response contain claims not in the retrieved context?
-- **Quality (1-5)** — are the recommendations actionable?
-
-Responses pass if accuracy >= 3, no hallucination, and recommendations are actionable.
+After every triage response Claude evaluates itself on accuracy, hallucination detection, and recommendation quality. Responses pass if accuracy >= 3, no hallucination detected, and recommendations are actionable.
 
 ---
 
@@ -305,24 +329,14 @@ Responses pass if accuracy >= 3, no hallucination, and recommendations are actio
 audit_log   — request_id, severity, model_used, pii_masked, eval_score, latency_ms
 metrics     — request_id, severity, latency_ms, model_used, eval_score, eval_passed
 feedback    — request_id, score, comment, flagged
-flagged     — request_id, score, comment (low-scored responses only)
+flagged     — request_id, score, comment
 ```
 
 ---
 
 ## Interview Pitch
 
-> "I built an enterprise-grade multi-agent AI system for incident management using Python, FastAPI, React, and Claude. The pipeline has three specialized agents — retrieval, analysis, and recommendation — coordinated by an orchestrator. I used RAG with ChromaDB so responses are grounded in 30 real past incidents. The system includes PII masking with Presidio before any data touches the LLM, SQLite for audit logging and metrics, and an evaluation framework where Claude grades its own responses for accuracy and hallucination. A feedback loop auto-flags low-scored responses for prompt review. The React frontend provides a live triage interface and observability dashboard. I also wrote 39 pytest tests covering every layer. This mirrors real AI operations in regulated environments like banking."
-
----
-
-## Adding More Incidents
-
-Edit `data/incidents.json` then re-run:
-
-```bash
-python app/rag/ingest.py
-```
+"I built an enterprise-grade multi-agent AI system for incident management using Python, FastAPI, React, and Claude. The pipeline has three specialized agents — retrieval, analysis, and recommendation — coordinated by an orchestrator. I used RAG with ChromaDB so responses are grounded in 30 real past incidents. The system includes PII masking with Presidio, SQLite for audit logging, and an evaluation framework where Claude grades its own responses for accuracy and hallucination. A feedback loop auto-flags low-scored responses for prompt review. The React frontend provides a live triage interface and observability dashboard. I wrote 39 pytest tests covering every layer and containerized the entire system with Docker so it deploys anywhere with one command."
 
 ---
 
@@ -330,7 +344,7 @@ python app/rag/ingest.py
 
 | Variable | Description |
 |---|---|
-| `ANTHROPIC_API_KEY` | Your Anthropic API key |
+| ANTHROPIC_API_KEY | Your Anthropic API key from console.anthropic.com |
 
 ---
 
