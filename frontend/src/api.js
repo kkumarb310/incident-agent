@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const BASE = 'http://localhost:8000';
+const BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 export const triageIncident = (title, description) =>
   axios.post(`${BASE}/triage`, { title, description });

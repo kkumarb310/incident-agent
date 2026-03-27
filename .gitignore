@@ -1,7 +1,12 @@
 
 venv/
+venv/
 .env
 __pycache__/
 *.pyc
 chroma_data/
 *.jsonl
+incidents.db
+.pytest_cache/
+node_modules/
+frontend/build/

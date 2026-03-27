@@ -8,3 +8,6 @@ presidio-analyzer
 presidio-anonymizer
 spacy
 tenacity
+pytest
+pytest-asyncio
+httpx

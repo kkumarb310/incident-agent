@@ -1,0 +1,15 @@
+venv/
+__pycache__/
+*.pyc
+.env
+chroma_data/
+incidents.db
+*.jsonl
+frontend/node_modules/
+.git/
+tests/
+.pytest_cache/
+*.md
+learn_*.py
+check_db.py
+test.http
