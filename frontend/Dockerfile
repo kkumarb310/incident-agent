@@ -1,22 +1,17 @@
-FROM python:3.11-slim
+FROM node:18-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+COPY package.json package-lock.json ./
 
-COPY requirements.txt .
-
-RUN pip install --no-cache-dir -r requirements.txt
-
-RUN python -m spacy download en_core_web_sm
+RUN npm install
 
 COPY . .
 
-RUN python app/rag/ingest.py
+RUN npm run build
 
-EXPOSE 8000
+RUN npm install -g serve
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+EXPOSE 3000
+
+CMD ["serve", "-s", "build", "-l", "3000"]
