@@ -1,24 +1,12 @@
-import { useState } from 'react';
-import './App.css';
-import TriagePage from './pages/TriagePage';
-import MetricsPage from './pages/MetricsPage';
+import axios from 'axios';
 
-export default function App() {
-  const [page, setPage] = useState('triage');
-  return (
-    <>
-      <nav className="nav">
-        <div className="nav-brand">
-          <div className="nav-dot" />
-          Incident Agent
-        </div>
-        <div className="nav-links">
-          <button className={`nav-btn ${page === 'triage' ? 'active' : ''}`} onClick={() => setPage('triage')}>Triage</button>
-          <button className={`nav-btn ${page === 'metrics' ? 'active' : ''}`} onClick={() => setPage('metrics')}>Metrics</button>
-        </div>
-        <div className="nav-badge">v1.0 · claude-sonnet</div>
-      </nav>
-      {page === 'triage' ? <TriagePage /> : <MetricsPage />}
-    </>
-  );
-}
+const BASE = 'https://incident-agent-production.up.railway.app';
+
+export const triageIncident = (title, description) =>
+  axios.post(`${BASE}/triage`, { title, description });
+
+export const submitFeedback = (request_id, score, comment) =>
+  axios.post(`${BASE}/feedback`, { request_id, score, comment });
+
+export const getMetrics = () =>
+  axios.get(`${BASE}/metrics`);
