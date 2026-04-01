@@ -6,11 +6,13 @@ An enterprise-grade multi-agent AI system for incident triage built with Python,
 
 ## Live Demo
 
-| Interface | URL |
+
+
+| Endpoint | URL |
 |---|---|
-| React Dashboard | http://localhost:3000 |
-| FastAPI Docs | http://localhost:8000/docs |
-| Health Check | http://localhost:8000/health |
+| Health check | https://incident-agent-production.up.railway.app/health |
+| API docs | https://incident-agent-production.up.railway.app/docs |
+| Triage | https://incident-agent-production.up.railway.app/triage |
 
 ---
 
