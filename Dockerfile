@@ -1,17 +1,22 @@
-FROM node:18-slim
+FROM python:3.11-slim
 
-WORKDIR /app
+WORKDIR /backend
 
-COPY package.json package-lock.json ./
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN npm install
+COPY requirements.txt .
+
+RUN pip install --no-cache-dir -r requirements.txt
+
+RUN python -m spacy download en_core_web_sm
 
 COPY . .
 
-RUN npm run build
+RUN python app/rag/ingest.py
 
-RUN npm install -g serve
+EXPOSE 8000
 
-EXPOSE 3000
-
-CMD ["serve", "-s", "build", "-l", "3000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
