@@ -24,6 +24,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+#comment
 class Incident(BaseModel):
     title: str
     description: str
