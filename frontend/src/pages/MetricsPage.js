@@ -2,86 +2,134 @@ import { useState, useEffect } from 'react';
 import { getMetrics } from '../api';
 
 export default function MetricsPage() {
-  const [metrics, setMetrics] = useState(null);
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState('');
 
   useEffect(() => {
     getMetrics()
-      .then(res => setMetrics(res.data))
-      .catch(() => setError('Could not load metrics. Is uvicorn running?'))
+      .then(r => setData(r.data))
+      .catch(() => setData(null))
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="page"><p>Loading metrics...</p></div>;
-  if (error)   return <div className="page"><div className="error">{error}</div></div>;
-  if (metrics?.message) return (
-    <div className="page">
-      <div className="page-header"><h1>Metrics</h1></div>
-      <div className="card"><p>{metrics.message}</p></div>
+  if (loading) return (
+    <div className="metrics-page">
+      <div className="no-data">Loading metrics...</div>
     </div>
   );
 
-  return (
-    <div className="page">
-      <div className="page-header">
+  if (!data || data.message) return (
+    <div className="metrics-page">
+      <div className="page-heading">
         <h1>Metrics</h1>
-        <p>Observability across all triage requests</p>
+        <p>Observability dashboard for your incident agent</p>
+      </div>
+      <div className="no-data">No metrics yet — run some incidents first.</div>
+    </div>
+  );
+
+  const totalIncidents = data.total_incidents || 0;
+  const avgLatency = data.avg_latency_ms ? Math.round(data.avg_latency_ms) : 0;
+  const avgScore = data.avg_eval_score ? data.avg_eval_score.toFixed(1) : '—';
+  const p1Count = data.severity_breakdown?.P1 || 0;
+
+  const breakdown = data.score_breakdown || {};
+  const maxScore = Math.max(...Object.values(breakdown), 1);
+
+  const sevBreakdown = data.severity_breakdown || {};
+  const maxSev = Math.max(...Object.values(sevBreakdown), 1);
+
+  return (
+    <div className="metrics-page">
+      <div className="page-heading">
+        <h1>Metrics</h1>
+        <p>Observability dashboard — {totalIncidents} incidents processed</p>
       </div>
 
-      <div className="kpi-grid">
-        <div className="kpi-card">
-          <div className="kpi-label">Total incidents</div>
-          <div className="kpi-value">{metrics.total_incidents}</div>
+      {/* STAT CARDS */}
+      <div className="stat-row">
+        <div className="scard">
+          <div className="scard-label">Total Incidents</div>
+          <div className="scard-val green">{totalIncidents}</div>
+          <div className="scard-sub">all time</div>
         </div>
-        <div className="kpi-card">
-          <div className="kpi-label">Avg latency</div>
-          <div className="kpi-value">{metrics.avg_latency_ms}ms</div>
+        <div className="scard">
+          <div className="scard-label">Avg Latency</div>
+          <div className="scard-val">{avgLatency}ms</div>
+          <div className="scard-sub">end to end</div>
         </div>
-        <div className="kpi-card">
-          <div className="kpi-label">Avg eval score</div>
-          <div className="kpi-value">{metrics.avg_eval_score} / 5</div>
+        <div className="scard">
+          <div className="scard-label">Avg Eval Score</div>
+          <div className="scard-val amber">{avgScore}/5</div>
+          <div className="scard-sub">llm-as-judge</div>
         </div>
-        <div className="kpi-card">
-          <div className="kpi-label">Pass rate</div>
-          <div className="kpi-value">{Math.round(metrics.pass_rate * 100)}%</div>
+        <div className="scard">
+          <div className="scard-label">P1 Incidents</div>
+          <div className="scard-val red">{p1Count}</div>
+          <div className="scard-sub">critical severity</div>
         </div>
       </div>
 
-      <div className="metrics-grid">
-        <div className="card">
-          <div className="card-title">Severity breakdown</div>
-          {Object.entries(metrics.severity_breakdown).map(([k, v]) => (
-            <div key={k} className="bar-row">
-              <span className="bar-label">{k}</span>
-              <div className="bar-track">
-                <div className="bar-fill" style={{
-                  width: `${Math.round(v / metrics.total_incidents * 100)}%`,
-                  background: k === 'P1' ? '#ef4444' : k === 'P2' ? '#f59e0b' : '#22c55e'
-                }}/>
+      {/* CHARTS */}
+      <div className="charts-row">
+
+        {/* SCORE DISTRIBUTION */}
+        <div className="panel">
+          <div className="panel-head">
+            <div className="panel-dot" />
+            <span className="panel-title">Eval Score Distribution</span>
+          </div>
+          <div className="panel-body">
+            {[5, 4, 3, 2, 1].map(score => (
+              <div key={score} className="score-item">
+                <span className="score-lbl">{score}★</span>
+                <div className="score-track">
+                  <div
+                    className="score-bar"
+                    style={{ width: `${((breakdown[score] || 0) / maxScore) * 100}%` }}
+                  />
+                </div>
+                <span className="score-ct">{breakdown[score] || 0}</span>
               </div>
-              <span className="bar-count">{v}</span>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
 
-        <div className="card">
-          <div className="card-title">Model usage</div>
-          {Object.entries(metrics.model_usage).map(([k, v]) => (
-            <div key={k} className="bar-row">
-              <span className="bar-label" style={{ width: '180px' }}>
-                {k.replace('claude-', '')}
-              </span>
-              <div className="bar-track">
-                <div className="bar-fill" style={{
-                  width: `${Math.round(v / metrics.total_incidents * 100)}%`,
-                  background: '#7c6af7'
-                }}/>
-              </div>
-              <span className="bar-count">{v}</span>
+        {/* SEVERITY BREAKDOWN */}
+        <div className="panel">
+          <div className="panel-head">
+            <div className="panel-dot" />
+            <span className="panel-title">Severity Breakdown</span>
+          </div>
+          <div className="panel-body">
+            <div className="sev-items">
+              {['P1', 'P2', 'P3'].map(sev => (
+                <div key={sev} className="sev-item">
+                  <span className={`sev-badge sev-${sev.toLowerCase()} sev-item-label`}>{sev}</span>
+                  <div className="sev-track">
+                    <div
+                      className={`sev-fill sev-${sev.toLowerCase()}-fill`}
+                      style={{ width: `${((sevBreakdown[sev] || 0) / maxSev) * 100}%` }}
+                    />
+                  </div>
+                  <span className="sev-ct">{sevBreakdown[sev] || 0}</span>
+                </div>
+              ))}
             </div>
-          ))}
+
+            {data.avg_feedback_score && (
+              <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border-subtle)' }}>
+                <div className="sec-label" style={{ fontSize: 10, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 8 }}>
+                  Avg User Feedback
+                </div>
+                <div style={{ fontSize: 28, fontWeight: 600, fontFamily: 'var(--font-mono)', color: 'var(--amber)' }}>
+                  {data.avg_feedback_score.toFixed(1)}/5
+                </div>
+              </div>
+            )}
+          </div>
         </div>
+
       </div>
     </div>
   );
