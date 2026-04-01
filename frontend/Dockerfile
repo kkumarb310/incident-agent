@@ -1,15 +1,22 @@
-FROM node:18-slim
+FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN npm install
+COPY requirements.txt .
+
+RUN pip install --no-cache-dir -r requirements.txt
+
+RUN python -m spacy download en_core_web_sm
 
 COPY . .
 
-EXPOSE 3000
+RUN python app/rag/ingest.py
 
-ENV REACT_APP_API_URL=http://localhost:8000
+EXPOSE 8000
 
-CMD ["npm", "start"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
