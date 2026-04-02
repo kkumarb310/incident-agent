@@ -1,6 +1,8 @@
 import os
+import hmac
+import hashlib
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from app.agents.orchestrator import run as orchestrate
@@ -69,6 +71,44 @@ def feedback_summary():
         "flagged":       len(load_flagged()),
         "breakdown":     {str(i): scores.count(i) for i in range(1, 6)}
     }
+
+@app.post("/webhook/pagerduty")
+async def pagerduty_webhook(request: Request):
+    import json
+
+    body = await request.body()
+    secret = os.getenv("PAGERDUTY_WEBHOOK_SECRET", "")
+
+    if secret:
+        signature_header = request.headers.get("X-PagerDuty-Signature", "")
+        expected = "v1=" + hmac.new(
+            secret.encode(), body, hashlib.sha256
+        ).hexdigest()
+        if not hmac.compare_digest(expected, signature_header):
+            raise HTTPException(status_code=401, detail="Invalid webhook signature")
+
+    payload = json.loads(body)
+
+    results = []
+    for event in payload.get("messages", []):
+        incident_data = event.get("incident", {})
+        if not incident_data:
+            continue
+
+        title = incident_data.get("title") or incident_data.get("summary") or "Untitled PagerDuty Incident"
+        description = incident_data.get("description") or incident_data.get("summary") or title
+        service = incident_data.get("service", {}).get("summary", "")
+        if service:
+            description = f"[Service: {service}] {description}"
+
+        result = orchestrate({"title": title, "description": description})
+        results.append({
+            "pagerduty_incident_id": incident_data.get("id"),
+            "triage": result
+        })
+
+    return {"processed": len(results), "results": results}
+
 
 @app.get("/health")
 def health():
