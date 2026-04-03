@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getMetrics } from '../api';
+import { getMetrics, getIncidents } from '../api';
 
 const REFRESH_MS = 30000;
 
-function getHistory() {
+function getLocalHistory() {
   try { return JSON.parse(localStorage.getItem('incident_history') || '[]'); }
   catch { return []; }
 }
@@ -24,22 +24,54 @@ function topServices(history) {
   return Object.entries(c).sort((a, b) => b[1] - a[1]).slice(0, 6);
 }
 
+/** Merge backend audit rows + localStorage, dedup by id, newest first */
+function mergeHistory(backendRows, localEntries) {
+  const localMap = {};
+  localEntries.forEach(e => { localMap[e.id] = e; });
+
+  const fromBackend = backendRows.map(r => ({
+    id:        r.request_id,
+    title:     r.incident_title,
+    severity:  r.severity,
+    date:      r.timestamp,
+    evalScore: r.eval_score,
+    latency:   r.latency_ms,
+    services:  localMap[r.request_id]?.services || [],
+  }));
+
+  const backendIds = new Set(backendRows.map(r => r.request_id));
+  const localOnly  = localEntries.filter(e => !backendIds.has(e.id));
+
+  return [...fromBackend, ...localOnly]
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
+}
+
 export default function HomePage({ onNavigate }) {
   const [metrics, setMetrics] = useState(null);
-  const history = getHistory();
-  const recent = [...history].reverse().slice(0, 7);
-  const services = topServices(history);
-  const maxSvc = services[0]?.[1] || 1;
+  const [history, setHistory] = useState([]);
 
-  const fetchMetrics = useCallback(() => {
+  const fetchAll = useCallback(() => {
     getMetrics().then(r => setMetrics(r.data)).catch(() => {});
+    getIncidents()
+      .then(r => {
+        const merged = mergeHistory(r.data.incidents || [], getLocalHistory());
+        setHistory(merged);
+      })
+      .catch(() => {
+        const local = [...getLocalHistory()].sort((a, b) => new Date(b.date) - new Date(a.date));
+        setHistory(local);
+      });
   }, []);
 
   useEffect(() => {
-    fetchMetrics();
-    const id = setInterval(fetchMetrics, REFRESH_MS);
+    fetchAll();
+    const id = setInterval(fetchAll, REFRESH_MS);
     return () => clearInterval(id);
-  }, [fetchMetrics]);
+  }, [fetchAll]);
+
+  const recent   = history.slice(0, 10);
+  const services = topServices(history);
+  const maxSvc   = services[0]?.[1] || 1;
 
   const total     = metrics?.total_incidents  || history.length;
   const p1        = metrics?.severity_breakdown?.P1 || history.filter(i => i.severity === 'P1').length;
@@ -49,10 +81,10 @@ export default function HomePage({ onNavigate }) {
     ? Math.round(metrics.avg_latency_ms)
     : history.length ? Math.round(history.reduce((a, b) => a + b.latency, 0) / history.length) : 0;
   const evalScore = metrics?.avg_eval_score?.toFixed(1)
-    || (history.length ? (history.reduce((a, b) => a + b.evalScore, 0) / history.length).toFixed(1) : '—');
+    || (history.length ? (history.reduce((a, b) => a + (b.evalScore || 0), 0) / history.length).toFixed(1) : '—');
   const feedScore = metrics?.avg_feedback_score?.toFixed(1) || '—';
 
-  const sevDot = s => s === 'P1' ? 'p1' : s === 'P2' ? 'p2' : 'p3';
+  const sevDot   = s => s === 'P1' ? 'p1' : s === 'P2' ? 'p2' : 'p3';
   const sevClass = s => s === 'P1' ? 'sev-p1' : s === 'P2' ? 'sev-p2' : 'sev-p3';
 
   return (
@@ -110,22 +142,32 @@ export default function HomePage({ onNavigate }) {
               <p>Run a triage to see activity here</p>
             </div>
           ) : (
-            <div className="feed-list">
-              {recent.map(item => (
-                <div key={item.id} className="feed-item">
-                  <div className={`feed-sev-dot ${sevDot(item.severity)}`} />
-                  <div className="feed-content">
-                    <div className="feed-title">{item.title}</div>
-                    <div className="feed-meta">
-                      <span className={`sev-badge ${sevClass(item.severity)}`} style={{ fontSize: 10, padding: '1px 5px' }}>{item.severity}</span>
-                      <span>{timeAgo(item.date)}</span>
-                      <span>{item.latency}ms</span>
+            <>
+              <div className="feed-list">
+                {recent.map(item => (
+                  <div key={item.id} className="feed-item">
+                    <div className={`feed-sev-dot ${sevDot(item.severity)}`} />
+                    <div className="feed-content">
+                      <div className="feed-title">{item.title}</div>
+                      <div className="feed-meta">
+                        <span className={`sev-badge ${sevClass(item.severity)}`} style={{ fontSize: 10, padding: '1px 5px' }}>{item.severity}</span>
+                        <span>{timeAgo(item.date)}</span>
+                        <span>{item.latency}ms</span>
+                      </div>
                     </div>
+                    <span className="feed-score">{item.evalScore}★</span>
                   </div>
-                  <span className="feed-score">{item.evalScore}★</span>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+              {history.length > 10 && (
+                <button
+                  className="feed-view-all"
+                  onClick={() => onNavigate('history')}
+                >
+                  View all {history.length} incidents →
+                </button>
+              )}
+            </>
           )}
         </div>
 
@@ -143,14 +185,11 @@ export default function HomePage({ onNavigate }) {
                 <div className="no-data-sm">No incidents yet</div>
               ) : (
                 <div className="sev-items">
-                  {[['P1', p1, 'red'], ['P2', p2, 'amber'], ['P3', p3, 'green']].map(([sev, count, _]) => (
+                  {[['P1', p1], ['P2', p2], ['P3', p3]].map(([sev, count]) => (
                     <div key={sev} className="sev-item">
                       <span className={`sev-badge sev-${sev.toLowerCase()} sev-item-label`}>{sev}</span>
                       <div className="sev-track">
-                        <div
-                          className={`sev-fill sev-${sev.toLowerCase()}-fill`}
-                          style={{ width: total ? `${(count / total) * 100}%` : '0%' }}
-                        />
+                        <div className={`sev-fill sev-${sev.toLowerCase()}-fill`} style={{ width: total ? `${(count / total) * 100}%` : '0%' }} />
                       </div>
                       <span className="sev-ct">{count}</span>
                     </div>
