@@ -119,12 +119,24 @@ def get_metrics_summary() -> dict:
     passed = conn.execute(
         "SELECT COUNT(*) FROM metrics WHERE eval_passed = 1"
     ).fetchone()[0]
+    score_rows = conn.execute(
+        "SELECT ROUND(eval_score) as score, COUNT(*) as count "
+        "FROM metrics WHERE eval_score IS NOT NULL GROUP BY ROUND(eval_score)"
+    ).fetchall()
+    score_breakdown = {int(row["score"]): row["count"] for row in score_rows}
+    avg_feedback = conn.execute(
+        "SELECT ROUND(AVG(score), 2) FROM feedback"
+    ).fetchone()[0]
     conn.close()
-    return {
+    result = {
         "total_incidents":    total,
         "avg_latency_ms":     avg_latency or 0,
         "avg_eval_score":     avg_score or 0,
         "severity_breakdown": severity_breakdown,
+        "score_breakdown":    score_breakdown,
         "model_usage":        model_usage,
-        "pass_rate":          round(passed / total, 2) if total else 0
- }
+        "pass_rate":          round(passed / total, 2) if total else 0,
+    }
+    if avg_feedback is not None:
+        result["avg_feedback_score"] = avg_feedback
+    return result

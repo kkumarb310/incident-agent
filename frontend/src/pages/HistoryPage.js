@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { loadDemoData, clearDemoData } from '../demoData';
 
 const PER_PAGE = 10;
 
@@ -16,11 +17,21 @@ function sevClass(s) {
 }
 
 export default function HistoryPage() {
-  const [history]  = useState(() => [...getHistory()].reverse());
+  const [history,  setHistory] = useState(() => [...getHistory()].reverse());
   const [search,  setSearch]  = useState('');
   const [filter,  setFilter]  = useState('all');
   const [page,    setPage]    = useState(1);
   const [selected, setSelected] = useState(null);
+
+  const handleLoadDemo = () => {
+    loadDemoData();
+    setHistory([...getHistory()].reverse());
+  };
+
+  const handleClear = () => {
+    clearDemoData();
+    setHistory([]);
+  };
 
   const filtered = history
     .filter(i => filter === 'all' || i.severity === filter)
@@ -38,6 +49,16 @@ export default function HistoryPage() {
         <div>
           <h1 className="page-title">Incident History</h1>
           <p className="page-sub">{history.length} incidents stored locally</p>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="qa-btn" onClick={handleLoadDemo} title="Populate with 20 sample incidents">
+            <span className="qa-icon">⬇</span> Load Demo Data
+          </button>
+          {history.length > 0 && (
+            <button className="qa-btn" onClick={handleClear} style={{ color: 'var(--red)', borderColor: 'rgba(248,81,73,0.3)' }}>
+              Clear
+            </button>
+          )}
         </div>
       </div>
 
@@ -75,9 +96,12 @@ export default function HistoryPage() {
 
         {rows.length === 0 ? (
           <div className="history-empty">
-            {history.length === 0
-              ? 'No incidents yet — run a triage to see history here.'
-              : 'No results match your search or filter.'}
+            {history.length === 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>No incidents yet — run a triage or load demo data to populate this view.</div>
+                <button className="btn-run btn-inline" onClick={handleLoadDemo}>⬇ Load Demo Data</button>
+              </div>
+            ) : 'No results match your search or filter.'}
           </div>
         ) : (
           rows.map(item => (
