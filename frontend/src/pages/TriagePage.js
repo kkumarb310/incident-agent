@@ -32,6 +32,21 @@ export default function TriagePage() {
     try {
       const res = await triageIncident(title, description);
       setResult(res.data);
+      // persist to local history
+      const entry = {
+        id: res.data.request_id,
+        title,
+        severity: res.data.analysis.severity,
+        date: new Date().toISOString(),
+        evalScore: res.data.evaluation.overall_score,
+        latency: res.data.latency_ms,
+        services: res.data.analysis.affected_services,
+        result: res.data,
+      };
+      try {
+        const prev = JSON.parse(localStorage.getItem('incident_history') || '[]');
+        localStorage.setItem('incident_history', JSON.stringify([...prev, entry]));
+      } catch { /* storage full or unavailable */ }
     } catch {
       setError('Failed to connect to backend. Is uvicorn running?');
     } finally {
@@ -48,7 +63,13 @@ export default function TriagePage() {
   const sevClass = (s) => s === 'P1' ? 'sev-p1' : s === 'P2' ? 'sev-p2' : 'sev-p3';
 
   return (
-    <div className="page">
+    <div className="inner-page">
+      <div className="page-topbar" style={{ marginBottom: 20 }}>
+        <div>
+          <h1 className="page-title">Triage</h1>
+          <p className="page-sub">Submit an incident for AI-powered analysis</p>
+        </div>
+      </div>
       <div className="triage-grid">
 
         {/* LEFT — INPUT */}
@@ -215,3 +236,4 @@ export default function TriagePage() {
     </div>
   );
 }
+

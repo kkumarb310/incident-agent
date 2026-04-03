@@ -1,38 +1,59 @@
 import { useState } from 'react';
+import HomePage from './pages/HomePage';
 import TriagePage from './pages/TriagePage';
 import MetricsPage from './pages/MetricsPage';
+import HistoryPage from './pages/HistoryPage';
 import './App.css';
 
-function App() {
-  const [page, setPage] = useState('triage');
+const NAV = [
+  { id: 'home',    icon: '⬡', label: 'Overview'  },
+  { id: 'triage',  icon: '⚡', label: 'Triage'    },
+  { id: 'history', icon: '◫', label: 'History'   },
+  { id: 'metrics', icon: '◈', label: 'Metrics'   },
+];
+
+const PAGE_MAP = {
+  home:    HomePage,
+  triage:  TriagePage,
+  history: HistoryPage,
+  metrics: MetricsPage,
+};
+
+export default function App() {
+  const [page, setPage] = useState('home');
+  const CurrentPage = PAGE_MAP[page];
 
   return (
-    <div className="app">
-      <nav className="navbar">
-        <div className="nav-brand">
-          <span className="nav-dot"></span>
-          Incident Agent
+    <div className="app-shell">
+      <aside className="sidebar">
+        <div className="sidebar-brand">
+          <span className="nav-dot" />
+          <span className="brand-text">IncidentAI</span>
         </div>
-        <div className="nav-links">
-          <button
-            className={page === 'triage' ? 'nav-btn active' : 'nav-btn'}
-            onClick={() => setPage('triage')}
-          >
-            Triage
-          </button>
-          <button
-            className={page === 'metrics' ? 'nav-btn active' : 'nav-btn'}
-            onClick={() => setPage('metrics')}
-          >
-            Metrics
-          </button>
+        <nav className="sidebar-nav">
+          {NAV.map(item => (
+            <button
+              key={item.id}
+              className={`sidebar-item ${page === item.id ? 'active' : ''}`}
+              onClick={() => setPage(item.id)}
+            >
+              <span className="sidebar-icon">{item.icon}</span>
+              <span className="sidebar-label">{item.label}</span>
+            </button>
+          ))}
+        </nav>
+        <div className="sidebar-footer">
+          <div className="sidebar-version">v2.0</div>
+          <div className="sidebar-status">
+            <span className="status-dot" />
+            Live
+          </div>
         </div>
-      </nav>
-      <main className="main">
-        {page === 'triage' ? <TriagePage /> : <MetricsPage />}
+      </aside>
+
+      <main className="app-main">
+        <CurrentPage onNavigate={setPage} />
       </main>
     </div>
   );
 }
-
-export default App;
