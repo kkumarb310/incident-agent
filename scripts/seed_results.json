@@ -1,0 +1,878 @@
+[
+  {
+    "request_id": "f4d8c277",
+    "title": "Notification service sending duplicate emails to users",
+    "analysis": {
+      "severity": "P2",
+      "root_cause": "Missing deduplication key in SQS message handler causing notification-service to process duplicate messages",
+      "affected_services": [
+        "notification-service",
+        "email-service",
+        "sqs-queue"
+      ],
+      "confidence": 0.95,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "recommendations": {
+      "immediate_actions": [
+        "Deploy hotfix to notification-service to add message deduplication using SQS MessageId or custom deduplication key",
+        "Purge duplicate messages from SQS queue to stop further duplicate processing",
+        "Add idempotency check in notification-service using Redis/database to track processed message IDs before sending emails",
+        "Monitor email-service metrics to confirm duplicate sends have stopped",
+        "Send internal comms to affected users explaining the duplicate emails (no action needed from them)"
+      ],
+      "root_cause_fix": "Implement SQS message deduplication by enabling content-based deduplication on FIFO queue or add MessageDeduplicationId to all messages. Add application-level idempotency layer in notification-service using MessageId tracking in Redis with 24hr TTL before processing any notification",
+      "escalate_to": null,
+      "estimated_resolution_mins": 45,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "evaluation": {
+      "accuracy_score": 4,
+      "hallucination_detected": true,
+      "hallucinated_claims": [
+        "Purge duplicate messages from SQS queue to stop further duplicate processing",
+        "enabling content-based deduplication on FIFO queue"
+      ],
+      "quality_score": 4,
+      "actionable": true,
+      "reasoning": "Response correctly identifies deduplication issue and proposes solid idempotency solutions based on context patterns, but suggests FIFO queue features and queue purging without evidence these apply to this specific architecture.",
+      "passed": false,
+      "overall_score": 4.0
+    },
+    "latency_ms": 12325,
+    "context_used": 3
+  },
+  {
+    "request_id": "2f506db1",
+    "title": "Background job scheduler running duplicate cron tasks",
+    "analysis": {
+      "severity": "P1",
+      "root_cause": "DST clock-change bug in cron parser causing billing-reconciliation job to execute 4 times instead of once",
+      "affected_services": [
+        "billing-reconciliation",
+        "payment-processing"
+      ],
+      "confidence": 0.95,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "recommendations": {
+      "immediate_actions": [
+        "Immediately disable the billing-reconciliation cron job to prevent further duplicate executions",
+        "Query payment-processing logs to identify all 312 affected customer transaction attempts and their current status",
+        "Roll back any duplicate charges that have been successfully processed using the payment processor's refund/void API",
+        "Mark the duplicate transaction attempts as cancelled in the billing database to prevent retry logic from picking them up",
+        "Verify no additional customers were affected beyond the identified 312",
+        "Enable monitoring alert to detect if any queued duplicate charges attempt to process"
+      ],
+      "root_cause_fix": "Migrate all billing-reconciliation cron schedules to UTC timezone to eliminate DST clock-change issues, implement idempotency keys on all billing operations using transaction_id + customer_id hash, add duplicate charge detection logic that checks for existing charges within 24-hour window before processing",
+      "escalate_to": "Finance team for customer communication and payment reconciliation verification",
+      "estimated_resolution_mins": 45,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "evaluation": {
+      "accuracy_score": 5,
+      "hallucination_detected": false,
+      "hallucinated_claims": [],
+      "quality_score": 5,
+      "actionable": true,
+      "reasoning": "The response accurately identifies the DST cron issue, provides concrete immediate actions supported by the context (UTC migration, idempotency keys, duplicate detection), and offers specific, executable steps for rollback and prevention.",
+      "passed": true,
+      "overall_score": 5.0
+    },
+    "latency_ms": 12453,
+    "context_used": 3
+  },
+  {
+    "request_id": "10a7a455",
+    "title": "API gateway rate limiter blocking legitimate traffic",
+    "analysis": {
+      "severity": "P1",
+      "root_cause": "Configuration map for api-gateway rate limiter was overwritten during Kubernetes upgrade, changing rate limit from 1000 req/min to 10 req/min",
+      "affected_services": [
+        "api-gateway",
+        "mobile-app",
+        "authentication"
+      ],
+      "confidence": 0.95,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "recommendations": {
+      "immediate_actions": [
+        "Verify current rate limit value in api-gateway ConfigMap: kubectl get configmap api-gateway-config -n <namespace> -o yaml | grep rate_limit",
+        "Update ConfigMap to restore correct rate limit: kubectl patch configmap api-gateway-config -n <namespace> --type merge -p '{\"data\":{\"rate_limit\":\"1000\"}}'",
+        "Restart api-gateway pods to apply new configuration: kubectl rollout restart deployment/api-gateway -n <namespace>",
+        "Monitor rollout completion: kubectl rollout status deployment/api-gateway -n <namespace>",
+        "Verify 429 errors are decreasing in real-time: check monitoring dashboard for api-gateway 429 response codes",
+        "Validate mobile app request success rate returns to >95%"
+      ],
+      "root_cause_fix": "Add ConfigMap to version control and implement GitOps workflow to prevent manual overwrites. Create pre-upgrade backup procedure for all ConfigMaps. Add validation checks in CI/CD pipeline to verify rate limit values match expected baseline before deployment. Implement ConfigMap immutability or add change approval requirements for production configurations.",
+      "escalate_to": null,
+      "estimated_resolution_mins": 15,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "evaluation": {
+      "accuracy_score": 5,
+      "hallucination_detected": false,
+      "hallucinated_claims": [],
+      "quality_score": 5,
+      "actionable": true,
+      "reasoning": "Response correctly identifies the root cause from the incident description, provides specific kubectl commands for immediate remediation, and recommends preventive measures without making unsupported claims from the context.",
+      "passed": true,
+      "overall_score": 5.0
+    },
+    "latency_ms": 11882,
+    "context_used": 3
+  },
+  {
+    "request_id": "4fbdcc5f",
+    "title": "Search service Elasticsearch index corrupted after shard failure",
+    "analysis": {
+      "severity": "P1",
+      "root_cause": "Elasticsearch node es-data-2 failure caused primary shard loss and replica promotion failed, leaving products_v4 index in red status with no queryable shards",
+      "affected_services": [
+        "product-search",
+        "elasticsearch-cluster",
+        "products_v4-index"
+      ],
+      "confidence": 0.95,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "recommendations": {
+      "immediate_actions": [
+        "Check status of es-data-2 node - attempt restart if process crashed",
+        "Run 'GET /_cluster/allocation/explain' to identify why replica promotion failed",
+        "Attempt manual shard allocation: 'POST /_cluster/reroute' with allocate_replica command for products_v4 shards",
+        "If manual allocation fails, restore products_v4 index from last successful snapshot using snapshot restore API",
+        "Verify products_v4 index status returns to green: 'GET /products_v4/_health'",
+        "Test search functionality with sample queries to confirm results returning",
+        "Monitor cluster health and shard allocation status for 15 minutes post-recovery"
+      ],
+      "root_cause_fix": "Add disk space monitoring and alerting for all ES data nodes (likely disk full prevented replica promotion). Increase replica count from 1 to 2 for products_v4 index to ensure shard availability during single node failures. Implement automated snapshot verification and retention policy. Configure cluster.routing.allocation.disk.watermark thresholds to prevent shard allocation failures.",
+      "escalate_to": null,
+      "estimated_resolution_mins": 25,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "evaluation": {
+      "accuracy_score": 4,
+      "hallucination_detected": true,
+      "hallucinated_claims": [
+        "likely disk full prevented replica promotion",
+        "Increase replica count from 1 to 2",
+        "Configure cluster.routing.allocation.disk.watermark thresholds"
+      ],
+      "quality_score": 4,
+      "actionable": true,
+      "reasoning": "Response provides actionable recovery steps and correctly identifies the core issue, but makes unsupported assumptions about disk space being the root cause and specific configuration values not mentioned in the incident or context.",
+      "passed": false,
+      "overall_score": 4.0
+    },
+    "latency_ms": 13986,
+    "context_used": 3
+  },
+  {
+    "request_id": "35fe5e09",
+    "title": "Slow query degrading checkout performance \u2014 missing index",
+    "analysis": {
+      "severity": "P1",
+      "root_cause": "Missing database index on orders table customer_id column causing full table scans after migration 0045 dropped idx_orders_customer",
+      "affected_services": [
+        "checkout",
+        "order-history"
+      ],
+      "confidence": 0.95,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "recommendations": {
+      "immediate_actions": [
+        "Verify migration 0045 deployment timestamp and confirm idx_orders_customer index is missing with: SELECT * FROM pg_indexes WHERE tablename = 'orders' AND indexname = 'idx_orders_customer'",
+        "Recreate the missing index immediately: CREATE INDEX CONCURRENTLY idx_orders_customer ON orders(customer_id)",
+        "Monitor index creation progress with: SELECT phase, blocks_done, blocks_total FROM pg_stat_progress_create_index WHERE relid = 'orders'::regclass",
+        "Once index is created, verify query performance with EXPLAIN ANALYZE on affected queries",
+        "Monitor checkout and order-history endpoint latencies return to baseline (200ms)"
+      ],
+      "root_cause_fix": "Add idx_orders_customer index back to the orders table and create a rollback validation step in the migration process to prevent critical index drops. Add database migration review checklist that flags any DROP INDEX commands for DBA review before production deployment. Consider adding automated index usage monitoring to alert when critical indexes are removed.",
+      "escalate_to": null,
+      "estimated_resolution_mins": 25,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "evaluation": {
+      "accuracy_score": 5,
+      "hallucination_detected": false,
+      "hallucinated_claims": [],
+      "quality_score": 5,
+      "actionable": true,
+      "reasoning": "The AI correctly identified the root cause from the incident details, provided specific SQL commands to verify and fix the issue, and recommended preventive measures without inventing unsupported facts.",
+      "passed": true,
+      "overall_score": 5.0
+    },
+    "latency_ms": 12024,
+    "context_used": 3
+  },
+  {
+    "request_id": "1812cdb5",
+    "title": "S3 presigned URL generation failing \u2014 IAM permission revoked",
+    "analysis": {
+      "severity": "P1",
+      "root_cause": "IAM policy changes from security review removed PutObject permissions for media-service-prod role on S3 bucket",
+      "affected_services": [
+        "media-service",
+        "profile-service",
+        "document-service"
+      ],
+      "confidence": 0.95,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "recommendations": {
+      "immediate_actions": [
+        "Identify the exact IAM policy version that was applied during the security review",
+        "Compare current IAM policy with the previous working version to identify removed PutObject permissions",
+        "Create an emergency change request to restore S3 PutObject permissions for media-service-prod role on the affected bucket",
+        "Apply the IAM policy update to restore PutObject access for media-service-prod role",
+        "Verify presigned URL generation is working by testing upload endpoints for profile pictures and document attachments",
+        "Monitor CloudWatch logs and metrics for media-service to confirm successful uploads"
+      ],
+      "root_cause_fix": "Implement IAM policy change validation in CI/CD pipeline that checks required permissions against service dependency matrix before deployment. Add automated integration tests that verify presigned URL generation and S3 write operations for all media-service endpoints. Establish security review checklist that requires service team sign-off on IAM changes. Create IAM policy versioning and rollback procedures with automated permission testing.",
+      "escalate_to": "Security team for policy review coordination",
+      "estimated_resolution_mins": 20,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "evaluation": {
+      "accuracy_score": 5,
+      "hallucination_detected": false,
+      "hallucinated_claims": [],
+      "quality_score": 5,
+      "actionable": true,
+      "reasoning": "Response accurately identifies IAM permission issue from context, provides specific actionable steps including policy comparison and restoration, and recommends preventive measures aligned with the context's resolution pattern of adding tests to CI pipeline.",
+      "passed": true,
+      "overall_score": 5.0
+    },
+    "latency_ms": 13852,
+    "context_used": 3
+  },
+  {
+    "request_id": "52c9b435",
+    "title": "Webhook delivery failures \u2014 TLS certificate expired",
+    "analysis": {
+      "severity": "P1",
+      "root_cause": "webhook-service TLS certificate expired due to certbot auto-renewal timeout failure",
+      "affected_services": [
+        "webhook-service",
+        "customer webhook endpoints"
+      ],
+      "confidence": 0.95,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "recommendations": {
+      "immediate_actions": [
+        "Stop webhook-service to prevent further SSL handshake errors",
+        "Manually renew TLS certificate using certbot renew --force-renewal",
+        "If certbot still times out, obtain certificate manually via certbot certonly --manual or use backup cert provider",
+        "Update webhook-service configuration with new certificate and private key paths",
+        "Restart webhook-service and verify TLS handshake succeeds with test webhook",
+        "Monitor webhook delivery success rate and begin processing retry backlog",
+        "Clear retry queue in batches to avoid overwhelming customer endpoints"
+      ],
+      "root_cause_fix": "Investigate and fix certbot timeout issue (check DNS propagation, rate limits, firewall rules blocking ACME challenge). Implement certificate expiry monitoring with alerts at 30/14/7/1 days before expiration. Add automated fallback certificate renewal method (backup ACME client or manual cert provider API). Consider moving to managed certificate service or load balancer with auto-cert management.",
+      "escalate_to": null,
+      "estimated_resolution_mins": 45,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "evaluation": {
+      "accuracy_score": 4,
+      "hallucination_detected": true,
+      "hallucinated_claims": [
+        "Stop webhook-service to prevent further SSL handshake errors"
+      ],
+      "quality_score": 4,
+      "actionable": true,
+      "reasoning": "Response correctly identifies the SSL certificate expiry issue and provides mostly actionable steps, but recommends stopping the service which isn't supported by context and could worsen the outage impact.",
+      "passed": false,
+      "overall_score": 4.0
+    },
+    "latency_ms": 12666,
+    "context_used": 3
+  },
+  {
+    "request_id": "264398df",
+    "title": "Postgres replication lag exceeding 45 seconds on read replica",
+    "analysis": {
+      "severity": "P2",
+      "root_cause": "Large batch INSERT operation saturated WAL sender process CPU causing replication lag on postgres-replica-2",
+      "affected_services": [
+        "analytics",
+        "postgres-replica-2",
+        "data-pipeline"
+      ],
+      "confidence": 0.92,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "recommendations": {
+      "immediate_actions": [
+        "Identify and pause/throttle the large batch INSERT job from data-pipeline to stop WAL generation spike",
+        "Temporarily route analytics queries away from postgres-replica-2 to other healthy replicas or primary",
+        "Monitor WAL sender CPU - if still at 98% after pausing pipeline, consider restarting WAL sender connection to replica-2",
+        "Check WAL segment accumulation on primary (pg_stat_replication) and disk space to prevent primary storage issues"
+      ],
+      "root_cause_fix": "Refactor data-pipeline batch INSERT jobs to use smaller transaction batches (chunking) with rate limiting. Configure max_wal_senders and wal_sender_timeout appropriately. Create dedicated replica for analytics workloads separate from replication targets. Add replication lag alerting at 30 seconds threshold.",
+      "escalate_to": "data-platform-team",
+      "estimated_resolution_mins": 45,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "evaluation": {
+      "accuracy_score": 4,
+      "hallucination_detected": true,
+      "hallucinated_claims": [
+        "Check WAL segment accumulation on primary (pg_stat_replication) and disk space to prevent primary storage issues",
+        "Configure max_wal_senders and wal_sender_timeout appropriately",
+        "Add replication lag alerting at 30 seconds threshold"
+      ],
+      "quality_score": 4,
+      "actionable": true,
+      "reasoning": "Response correctly identifies root cause and provides practical immediate actions, but includes technical specifics (pg_stat_replication, max_wal_senders, 30s threshold) not present in the provided context, though the core recommendations align with similar patterns from the knowledge base.",
+      "passed": false,
+      "overall_score": 4.0
+    },
+    "latency_ms": 12629,
+    "context_used": 3
+  },
+  {
+    "request_id": "903ca228",
+    "title": "Disk usage at 94% on logging node \u2014 log rotation not working",
+    "analysis": {
+      "severity": "P1",
+      "root_cause": "Logrotate cron job failure due to permissions error on /var/log/app preventing log rotation and causing disk capacity to reach critical 94%",
+      "affected_services": [
+        "logging",
+        "log ingestion",
+        "application logging"
+      ],
+      "confidence": 0.95,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "recommendations": {
+      "immediate_actions": [
+        "Fix permissions on /var/log/app: sudo chown -R root:syslog /var/log/app && sudo chmod 755 /var/log/app",
+        "Manually trigger logrotate: sudo logrotate -f /etc/logrotate.conf",
+        "Verify disk usage decreased: df -h | grep logging",
+        "If disk still >90%, manually delete oldest archived logs: sudo find /var/log/app -name '*.gz' -mtime +30 -delete",
+        "Restart log ingestion service if it has stopped: sudo systemctl restart rsyslog",
+        "Verify logrotate cron is now running: sudo run-parts --test /etc/cron.daily"
+      ],
+      "root_cause_fix": "Add monitoring for logrotate job execution failures with alerting. Implement automated permissions check before logrotate runs. Set up disk usage alerts at 80% threshold. Configure log shipping to S3 or centralized logging system to prevent future disk exhaustion. Document correct permissions for /var/log/app in infrastructure-as-code.",
+      "escalate_to": null,
+      "estimated_resolution_mins": 15,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "evaluation": {
+      "accuracy_score": 4,
+      "hallucination_detected": true,
+      "hallucinated_claims": [
+        "sudo chown -R root:syslog /var/log/app && sudo chmod 755 /var/log/app",
+        "sudo systemctl restart rsyslog",
+        "sudo run-parts --test /etc/cron.daily"
+      ],
+      "quality_score": 4,
+      "actionable": true,
+      "reasoning": "Response correctly identifies the issue and provides actionable steps, but specifies technical details (user:group ownership, service names, file paths) not present in the incident or context.",
+      "passed": false,
+      "overall_score": 4.0
+    },
+    "latency_ms": 11438,
+    "context_used": 3
+  },
+  {
+    "request_id": "12ca8559",
+    "title": "Feature flag service unresponsive \u2014 all flags returning default",
+    "analysis": {
+      "severity": "P1",
+      "root_cause": "LaunchDarkly SDK cannot reach feature flag service due to API timeout exceeding client timeout threshold causing fallback to hardcoded defaults",
+      "affected_services": [
+        "feature_flag_service",
+        "payments",
+        "launchdarkly_sdk"
+      ],
+      "confidence": 0.92,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "recommendations": {
+      "immediate_actions": [
+        "Immediately deploy emergency feature flag override config to force payments US_DRIVER_LICENSE flag to FALSE/OFF across all environments",
+        "Implement circuit breaker to bypass LaunchDarkly SDK and use safe hardcoded defaults (all unreleased features OFF) until SDK connectivity restored",
+        "Verify payments service is using safe fallback state - confirm no unauthorized payments processing",
+        "Check LaunchDarkly service status page and network connectivity from production environment to LaunchDarkly API endpoints",
+        "If LaunchDarkly API is degraded, increase SDK timeout from current value to 30s and enable SDK local caching mode",
+        "Deploy SDK configuration to use LaunchDarkly Relay Proxy if available to reduce direct API dependency",
+        "Monitor payment transactions for the incident window and prepare rollback/reversal plan for any unintended charges"
+      ],
+      "root_cause_fix": "Configure LaunchDarkly SDK with proper timeout settings (30s), enable persistent local flag cache with TTL, implement LaunchDarkly Relay Proxy in infrastructure for improved reliability and reduced latency, update hardcoded fallback defaults to safe-OFF state for all unreleased features, add LaunchDarkly API latency monitoring and alerting at <5s threshold",
+      "escalate_to": "payments-team for transaction impact assessment",
+      "estimated_resolution_mins": 15,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "evaluation": {
+      "accuracy_score": 2,
+      "hallucination_detected": true,
+      "hallucinated_claims": [
+        "increase SDK timeout from current value to 30s",
+        "enable SDK local caching mode",
+        "deploy LaunchDarkly Relay Proxy",
+        "configure SDK with proper timeout settings (30s)",
+        "enable persistent local flag cache with TTL",
+        "implement LaunchDarkly Relay Proxy in infrastructure",
+        "add LaunchDarkly API latency monitoring and alerting at <5s threshold"
+      ],
+      "quality_score": 3,
+      "actionable": false,
+      "reasoning": "Response contains extensive technical recommendations about LaunchDarkly SDK configuration, timeouts, caching, and relay proxies that are completely unsupported by the provided context which only covers file uploads, OAuth tokens, and webhooks.",
+      "passed": false,
+      "overall_score": 2.5
+    },
+    "latency_ms": 16806,
+    "context_used": 3
+  },
+  {
+    "request_id": "5e1f1451",
+    "title": "gRPC service mesh certificate rotation broke inter-service auth",
+    "analysis": {
+      "severity": "P1",
+      "root_cause": "Istio mTLS certificate rotation completed partially, leaving inventory-service and pricing-service with expired certificates causing authentication failures on gRPC calls",
+      "affected_services": [
+        "inventory-service",
+        "pricing-service",
+        "cart-service",
+        "product-service"
+      ],
+      "confidence": 0.95,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "recommendations": {
+      "immediate_actions": [
+        "Verify Istio control plane (istiod) is healthy and running: kubectl get pods -n istio-system",
+        "Force certificate rotation on affected services: kubectl rollout restart deployment inventory-service pricing-service -n <namespace>",
+        "Monitor pod restart and certificate refresh: kubectl get pods -n <namespace> -w",
+        "Verify new certificates are issued: istioctl proxy-config secret inventory-service-<pod> -n <namespace> | grep default",
+        "Test gRPC connectivity between services: kubectl exec -it cart-service-<pod> -- grpc_health_probe -addr=inventory-service:9090",
+        "Monitor 503 errors clearing: check product/cart page response codes",
+        "If restart fails, manually trigger cert refresh: kubectl exec -it inventory-service-<pod> -c istio-proxy -- pilot-agent request POST /quitquitquit"
+      ],
+      "root_cause_fix": "Configure Istio certificate rotation monitoring and implement automated health checks post-rotation. Add PodDisruptionBudget to ensure rolling restarts during cert rotation. Enable Istio telemetry alerts for certificate expiry warnings (7 days before). Consider implementing cert-manager integration for more reliable certificate lifecycle management. Add pre-rotation validation webhook to ensure all services can reach certificate authority.",
+      "escalate_to": null,
+      "estimated_resolution_mins": 15,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "evaluation": {
+      "accuracy_score": 3,
+      "hallucination_detected": true,
+      "hallucinated_claims": [
+        "kubectl rollout restart deployment inventory-service pricing-service -n <namespace>",
+        "istioctl proxy-config secret inventory-service-<pod> -n <namespace> | grep default",
+        "kubectl exec -it cart-service-<pod> -- grpc_health_probe -addr=inventory-service:9090",
+        "kubectl exec -it inventory-service-<pod> -c istio-proxy -- pilot-agent request POST /quitquitquit",
+        "Configure Istio certificate rotation monitoring",
+        "Add PodDisruptionBudget to ensure rolling restarts during cert rotation",
+        "Enable Istio telemetry alerts for certificate expiry warnings",
+        "Consider implementing cert-manager integration",
+        "Add pre-rotation validation webhook"
+      ],
+      "quality_score": 2,
+      "actionable": false,
+      "reasoning": "The response provides Istio-specific commands and architecture recommendations that are not supported by the provided context, which only covers SSL cert expiry, gRPC timeouts, and JWT rotation\u2014none of which mention Istio, kubectl commands, or the specific technical solutions proposed.",
+      "passed": false,
+      "overall_score": 2.5
+    },
+    "latency_ms": 16775,
+    "context_used": 3
+  },
+  {
+    "request_id": "b32b73cc",
+    "title": "Mobile push notification delivery rate dropped to 3%",
+    "analysis": {
+      "severity": "P1",
+      "root_cause": "Bulk migration of APNs device tokens without proper validation caused invalid tokens to be stored, as tokens from the old provider are not compatible with the new APNs infrastructure",
+      "affected_services": [
+        "push_notifications",
+        "apns_service",
+        "ios_app"
+      ],
+      "confidence": 0.95,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "recommendations": {
+      "immediate_actions": [
+        "Immediately pause all iOS push notification sends to prevent further BadDeviceToken errors and potential APNs rate limiting",
+        "Deploy hotfix to filter out all device tokens that were migrated during the bulk migration window (check migration timestamp metadata)",
+        "Trigger force re-registration flow for iOS app users: implement silent push with content-available=1 to wake apps and request fresh token registration",
+        "Monitor APNs error rate - should drop to <5% once migrated tokens are filtered out",
+        "Implement token validation service that checks APNs token format (64 hex characters) before storing in database",
+        "Add database flag to mark tokens as 'validated' vs 'migrated' to track clean vs suspect tokens"
+      ],
+      "root_cause_fix": "APNs device tokens are provider-specific and environment-specific (sandbox vs production). Tokens from the old provider cannot be reused with new APNs certificates/infrastructure. Permanent fix requires: (1) Purge all bulk-migrated tokens from database, (2) Implement in-app token refresh mechanism that detects invalid tokens and re-registers with APNs, (3) Add token validation at ingestion to verify format and optionally test with APNs feedback service before storage, (4) Update migration procedures to never transfer device tokens between providers - always require fresh registration",
+      "escalate_to": "iOS Engineering Team",
+      "estimated_resolution_mins": 45,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "evaluation": {
+      "accuracy_score": 3,
+      "hallucination_detected": true,
+      "hallucinated_claims": [
+        "Trigger force re-registration flow for iOS app users: implement silent push with content-available=1",
+        "Implement token validation service that checks APNs token format (64 hex characters)",
+        "APNs device tokens are provider-specific and environment-specific (sandbox vs production)",
+        "Add token validation at ingestion to verify format and optionally test with APNs feedback service",
+        "Implement in-app token refresh mechanism that detects invalid tokens and re-registers with APNs"
+      ],
+      "quality_score": 2,
+      "actionable": false,
+      "reasoning": "While the diagnosis of bulk-migrated tokens being invalid is reasonable from the incident description, the detailed technical recommendations about APNs token formats, silent pushes, feedback services, and specific implementation approaches are not supported by the provided context, which only covers OAuth, webhooks, and Kafka consumer issues.",
+      "passed": false,
+      "overall_score": 2.5
+    },
+    "latency_ms": 18950,
+    "context_used": 3
+  },
+  {
+    "request_id": "b35268b2",
+    "title": "Terraform state lock stuck \u2014 blocking all infrastructure changes",
+    "analysis": {
+      "severity": "P1",
+      "root_cause": "Terraform DynamoDB state lock not released after CI job timeout, blocking all infrastructure deployments including critical auth rollback",
+      "affected_services": [
+        "terraform",
+        "ci-pipeline",
+        "auth-service",
+        "infrastructure-deployment"
+      ],
+      "confidence": 0.95,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "recommendations": {
+      "immediate_actions": [
+        "Identify the DynamoDB table name for Terraform state locks (typically terraform-state-lock or similar)",
+        "Use AWS CLI or Console to locate the lock entry with LockID matching job ID ci-run-4892",
+        "Delete the stale lock entry from DynamoDB table using: aws dynamodb delete-item --table-name <lock-table> --key '{\"LockID\": {\"S\": \"<path-to-state>/ci-run-4892\"}}'",
+        "Verify lock release by attempting 'terraform force-unlock <lock-id>' or checking DynamoDB table is empty",
+        "Immediately proceed with hotfix deployment for auth rollback",
+        "Monitor deployment completion and verify auth service stability"
+      ],
+      "root_cause_fix": "Add CI pipeline safeguards: implement terraform wrapper script with trap to force-unlock on job timeout/failure, set explicit CI job timeout of 45 minutes with cleanup hook, add automated lock age monitoring with alert at 30 minutes, implement lock cleanup Lambda triggered by CloudWatch Events for locks older than 1 hour",
+      "escalate_to": null,
+      "estimated_resolution_mins": 15,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "evaluation": {
+      "accuracy_score": 5,
+      "hallucination_detected": false,
+      "hallucinated_claims": [],
+      "quality_score": 5,
+      "actionable": true,
+      "reasoning": "Response correctly identifies the DynamoDB lock issue, provides specific commands matching the context resolution, and recommends CI timeout safeguards (45min) directly supported by the retrieved context.",
+      "passed": true,
+      "overall_score": 5.0
+    },
+    "latency_ms": 13051,
+    "context_used": 3
+  },
+  {
+    "request_id": "244ee645",
+    "title": "GraphQL N+1 queries overloading postgres during peak hours",
+    "analysis": {
+      "severity": "P1",
+      "root_cause": "DataLoader removed in PR #2041 causing N+1 query problem where GraphQL resolver fires one query per user instead of batching",
+      "affected_services": [
+        "postgres",
+        "graphql-api",
+        "dashboard"
+      ],
+      "confidence": 0.95,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "recommendations": {
+      "immediate_actions": [
+        "Revert PR #2041 immediately to restore DataLoader functionality",
+        "If revert not possible, redeploy the previous stable version of graphql-api service",
+        "Monitor postgres CPU - should drop below 50% within 2-3 minutes after redeployment",
+        "Verify dashboard page loads correctly with <2 second response time",
+        "Check graphql-api logs to confirm batched queries are executing (should see batch sizes of 50+ instead of individual queries)"
+      ],
+      "root_cause_fix": "Restore DataLoader implementation in GraphQL resolver for user.orders field. Add integration test that validates DataLoader batching behavior with 50+ concurrent user queries to prevent regression. Implement pre-deployment query analysis to detect N+1 patterns before production.",
+      "escalate_to": null,
+      "estimated_resolution_mins": 15,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "evaluation": {
+      "accuracy_score": 5,
+      "hallucination_detected": false,
+      "hallucinated_claims": [],
+      "quality_score": 5,
+      "actionable": true,
+      "reasoning": "Response correctly identifies N+1 query root cause from incident details, provides specific revert actions referencing PR #2041, and offers actionable monitoring steps with concrete metrics.",
+      "passed": true,
+      "overall_score": 5.0
+    },
+    "latency_ms": 10513,
+    "context_used": 3
+  },
+  {
+    "request_id": "2cca0afa",
+    "title": "Payment service database connection pool exhausted",
+    "analysis": {
+      "severity": "P1",
+      "root_cause": "PostgreSQL connection pool exhaustion due to max_connections limit being reached",
+      "affected_services": [
+        "payment-service",
+        "orders"
+      ],
+      "confidence": 0.95,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "recommendations": {
+      "immediate_actions": [
+        "Terminate idle and long-running queries in Postgres using pg_terminate_backend() for connections idle_in_transaction > 5 minutes",
+        "Increase Postgres max_connections from 100 to 200 and reload configuration (pg_reload_conf())",
+        "Scale payment-service horizontally - reduce replicas by 50% temporarily to lower connection demand while tuning pool sizes",
+        "Set connection pool size per payment-service instance to (max_connections * 0.8) / total_instances to prevent exhaustion",
+        "Enable connection pooling middleware (PgBouncer) in transaction mode if not already present to multiplex connections"
+      ],
+      "root_cause_fix": "Implement PgBouncer or similar connection pooler in front of Postgres with pool_mode=transaction and max_client_conn=1000, default_pool_size=25. Configure payment-service to connect through pooler with max pool size of 10 per instance. Add connection pool monitoring alerts at 70% utilization. Review and optimize slow queries causing long connection hold times. Increase Postgres max_connections to 300 with shared_buffers adjusted accordingly.",
+      "escalate_to": "Database Engineering Team",
+      "estimated_resolution_mins": 15,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "evaluation": {
+      "accuracy_score": 4,
+      "hallucination_detected": true,
+      "hallucinated_claims": [
+        "Scale payment-service horizontally - reduce replicas by 50% temporarily to lower connection demand while tuning pool sizes"
+      ],
+      "quality_score": 4,
+      "actionable": true,
+      "reasoning": "The response is highly actionable and mostly accurate based on context, but contains a logical error recommending to reduce replicas when scaling horizontally typically means increasing them, and reduction isn't mentioned in the retrieved context.",
+      "passed": false,
+      "overall_score": 4.0
+    },
+    "latency_ms": 14089,
+    "context_used": 3
+  },
+  {
+    "request_id": "b2a6c700",
+    "title": "Auth service returning 500 on all login requests",
+    "analysis": {
+      "severity": "P1",
+      "root_cause": "JWT validation failing due to secret/configuration mismatch introduced in auth-service v3.1.4 deployment",
+      "affected_services": [
+        "auth-service",
+        "user-sessions"
+      ],
+      "confidence": 0.92,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "recommendations": {
+      "immediate_actions": [
+        "Rollback auth-service from v3.1.4 to v3.1.3 immediately",
+        "Verify rollback completion and pod health across all replicas",
+        "Monitor auth-service logs for successful JWT validation",
+        "Trigger user session refresh/re-authentication for active users"
+      ],
+      "root_cause_fix": "Investigate JWT secret configuration in v3.1.4 deployment manifests vs v3.1.3. Implement dual-secret validation support to allow graceful secret rotation. Add pre-deployment validation test that verifies JWT validation with current production secrets before release.",
+      "escalate_to": null,
+      "estimated_resolution_mins": 15,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "evaluation": {
+      "accuracy_score": 5,
+      "hallucination_detected": false,
+      "hallucinated_claims": [],
+      "quality_score": 5,
+      "actionable": true,
+      "reasoning": "Response correctly identifies JWT validation issues from deployment, provides specific actionable rollback steps, and recommends dual-secret validation directly supported by context.",
+      "passed": true,
+      "overall_score": 5.0
+    },
+    "latency_ms": 10689,
+    "context_used": 3
+  },
+  {
+    "request_id": "ea451801",
+    "title": "Redis cache cluster out of memory eviction storm",
+    "analysis": {
+      "severity": "P1",
+      "root_cause": "Redis maxmemory limit reached causing aggressive key eviction under allkeys-lru policy, forcing cache misses and overwhelming backend databases",
+      "affected_services": [
+        "api-gateway",
+        "product-catalog",
+        "session-store"
+      ],
+      "confidence": 0.95,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "recommendations": {
+      "immediate_actions": [
+        "Increase Redis maxmemory limit by 2x on all affected instances (api-gateway, product-catalog, session-store)",
+        "Switch session-store Redis eviction policy from allkeys-lru to noeviction to prevent session loss",
+        "Switch product-catalog and api-gateway Redis to volatile-lru to preserve critical keys without TTL",
+        "Enable Redis read replicas for product-catalog to distribute read load",
+        "Implement circuit breakers on backend database connections to prevent cascade failure",
+        "Flush non-critical cache namespaces (analytics, temporary data) to free immediate memory",
+        "Scale Redis instances vertically if memory increase not sufficient within 10 minutes"
+      ],
+      "root_cause_fix": "Provision Redis cluster with 3x current memory capacity, implement tiered caching strategy with separate Redis instances per service tier (critical/session using noeviction, general cache using volatile-lru), add memory utilization alerting at 70% threshold, implement cache warming procedures for product-catalog on deployments, establish Redis memory capacity planning based on traffic projections",
+      "escalate_to": "Infrastructure team for permanent Redis cluster provisioning",
+      "estimated_resolution_mins": 15,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "evaluation": {
+      "accuracy_score": 4,
+      "hallucination_detected": true,
+      "hallucinated_claims": [
+        "Enable Redis read replicas for product-catalog to distribute read load",
+        "Flush non-critical cache namespaces (analytics, temporary data) to free immediate memory",
+        "Scale Redis instances vertically if memory increase not sufficient within 10 minutes",
+        "Provision Redis cluster with 3x current memory capacity",
+        "implement tiered caching strategy with separate Redis instances per service tier"
+      ],
+      "quality_score": 4,
+      "actionable": true,
+      "reasoning": "The core diagnosis and primary recommendations (increase memory, switch eviction policies, add circuit breakers) align well with context, but several specific technical solutions like read replicas, cache namespace flushing, and tiered clustering are not mentioned in the retrieved context and appear to be generated without grounding.",
+      "passed": false,
+      "overall_score": 4.0
+    },
+    "latency_ms": 14591,
+    "context_used": 3
+  },
+  {
+    "request_id": "b348e577",
+    "title": "Kafka consumer lag exceeding 2 million messages",
+    "analysis": {
+      "severity": "P1",
+      "root_cause": "Kafka consumer group processing bottleneck causing message accumulation with 2.1M message lag across partitions",
+      "affected_services": [
+        "orders-consumer",
+        "fulfillment",
+        "background-workers"
+      ],
+      "confidence": 0.92,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "recommendations": {
+      "immediate_actions": [
+        "Scale orders-consumer replicas from current count to 8-12 instances immediately",
+        "Check for stuck background workers and restart hung worker processes",
+        "Verify database connection pool availability and increase pool size if exhausted",
+        "Monitor consumer commit rate and enable auto-commit if disabled",
+        "Check for slow fulfillment queries and enable read replicas if needed",
+        "Verify network connectivity between consumers and Kafka brokers"
+      ],
+      "root_cause_fix": "Implement horizontal auto-scaling for orders-consumer based on lag threshold (trigger at 100k messages), add circuit breaker for fulfillment service calls with 3s timeout, increase consumer fetch.max.bytes to process larger batches, configure dead letter topic for failed messages after 3 retries, add consumer lag alerts at 50k/500k/1M thresholds",
+      "escalate_to": null,
+      "estimated_resolution_mins": 45,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "evaluation": {
+      "accuracy_score": 4,
+      "hallucination_detected": true,
+      "hallucinated_claims": [
+        "Scale orders-consumer replicas from current count to 8-12 instances immediately",
+        "Verify database connection pool availability and increase pool size if exhausted",
+        "Monitor consumer commit rate and enable auto-commit if disabled",
+        "Check for slow fulfillment queries and enable read replicas if needed",
+        "Verify network connectivity between consumers and Kafka brokers",
+        "enable auto-commit if disabled",
+        "increase consumer fetch.max.bytes to process larger batches",
+        "circuit breaker for fulfillment service calls with 3s timeout"
+      ],
+      "quality_score": 3,
+      "actionable": true,
+      "reasoning": "While recommendations are actionable and draw from similar Kafka lag patterns in context, many specific implementation details (replica counts 8-12, 3s timeout, auto-commit, fetch.max.bytes, read replicas) are not evidenced in the provided context and represent hallucinated technical specifications.",
+      "passed": false,
+      "overall_score": 3.5
+    },
+    "latency_ms": 13197,
+    "context_used": 3
+  },
+  {
+    "request_id": "e62c23da",
+    "title": "CDN serving stale 404 pages for all api routes",
+    "analysis": {
+      "severity": "P1",
+      "root_cause": "Misconfigured CloudFront cache behavior is serving cached 404 responses with 86400s TTL for all location routes",
+      "affected_services": [
+        "CloudFront",
+        "Frontend",
+        "Location Routes"
+      ],
+      "confidence": 0.95,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "recommendations": {
+      "immediate_actions": [
+        "Create CloudFront invalidation for all location routes using path pattern /location/* or /<LOCATION>/* (invalidation takes 5-15 mins)",
+        "Verify origin health endpoint is responding correctly for location routes",
+        "Roll back the misconfigured CloudFront cache behavior deployment to previous known-good configuration",
+        "Monitor CloudFront metrics and frontend error rates for recovery confirmation"
+      ],
+      "root_cause_fix": "Update CloudFront cache behavior configuration to properly handle location routes with correct TTL settings. Add pre-deployment validation checks for cache behavior configurations. Implement automated smoke tests for critical routes post-deployment. Add CloudFront configuration to GitOps repository with peer review requirements.",
+      "escalate_to": null,
+      "estimated_resolution_mins": 20,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "evaluation": {
+      "accuracy_score": 4,
+      "hallucination_detected": true,
+      "hallucinated_claims": [
+        "invalidation takes 5-15 mins",
+        "Verify origin health endpoint is responding correctly for location routes",
+        "estimated_resolution_mins: 20"
+      ],
+      "quality_score": 4,
+      "actionable": true,
+      "reasoning": "Response provides relevant CloudFront-specific actions, but includes timing estimates and specific verification steps not present in the provided context, though recommendations are practically sound for CDN cache incidents.",
+      "passed": false,
+      "overall_score": 4.0
+    },
+    "latency_ms": 13245,
+    "context_used": 3
+  },
+  {
+    "request_id": "cfe7ddd2",
+    "title": "Orders service memory leak OOM kills every 20 minutes",
+    "analysis": {
+      "severity": "P1",
+      "root_cause": "Resource leak caused by unclosed HTTP client connections accumulating in orders-service memory heap",
+      "affected_services": [
+        "orders-service"
+      ],
+      "confidence": 0.95,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "recommendations": {
+      "immediate_actions": [
+        "Set orders-service replica count to 0 to stop crash loop and prevent further impact",
+        "Capture a heap dump from a running pod before it OOMKills (if any pods still up) using kubectl exec and jmap or similar tooling",
+        "Roll back orders-service to the last known stable version/deployment",
+        "Scale orders-service back up with increased memory limit to 2GB (temporary mitigation) and set replica count to normal",
+        "Monitor memory usage and connection metrics closely for 15 minutes to confirm rollback stability"
+      ],
+      "root_cause_fix": "Review orders-service code for HTTP client usage patterns and ensure all HTTP client connections are properly closed in try-finally blocks or using try-with-resources. Implement connection pooling with proper timeout and max connection limits. Add connection metrics monitoring. Deploy fixed version with proper connection lifecycle management and connection pool configuration (e.g., max idle connections, connection timeout, keep-alive settings).",
+      "escalate_to": "orders-service development team",
+      "estimated_resolution_mins": 20,
+      "model_used": "claude-sonnet-4-5"
+    },
+    "evaluation": {
+      "accuracy_score": 4,
+      "hallucination_detected": true,
+      "hallucinated_claims": [
+        "Set orders-service replica count to 0 to stop crash loop",
+        "Capture a heap dump from a running pod before it OOMKills using kubectl exec and jmap",
+        "Roll back orders-service to the last known stable version/deployment",
+        "Scale orders-service back up with increased memory limit to 2GB"
+      ],
+      "quality_score": 4,
+      "actionable": true,
+      "reasoning": "The analysis correctly identifies the root cause from the incident description, but the recommendations include specific technical actions not supported by the provided context, which only contains examples of different incidents without orders-service troubleshooting procedures.",
+      "passed": false,
+      "overall_score": 4.0
+    },
+    "latency_ms": 14690,
+    "context_used": 3
+  }
+]

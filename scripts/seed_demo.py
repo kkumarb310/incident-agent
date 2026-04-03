@@ -205,12 +205,12 @@ def seed():
                 score = data.get("evaluation", {}).get("overall_score", "?")
                 ms    = data.get("latency_ms", "?")
                 rid   = data.get("request_id", "?")
-                print(f"         ✓  {sev}  score={score}/5  {ms}ms  id={rid}")
+                print(f"         OK  {sev}  score={score}/5  {ms}ms  id={rid}")
                 results.append(data)
             else:
-                print(f"         ✗  HTTP {resp.status_code}: {resp.text[:100]}")
+                print(f"         FAIL  HTTP {resp.status_code}: {resp.text[:100]}")
         except Exception as e:
-            print(f"         ✗  Error: {e}")
+            print(f"         ERR  {e}")
 
         # brief pause to avoid hammering the API
         if i < len(INCIDENTS):
