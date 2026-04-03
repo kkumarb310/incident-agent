@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { triageIncident, submitFeedback } from '../api';
+import { showToast } from '../toast';
 
 const STEPS = [
   'Retrieving similar incidents...',
@@ -32,6 +33,8 @@ export default function TriagePage() {
     try {
       const res = await triageIncident(title, description);
       setResult(res.data);
+      const sev = res.data.analysis?.severity || '';
+      showToast(`Triage complete — ${sev} · ${res.data.latency_ms}ms`, 'success');
       // persist to local history
       const entry = {
         id: res.data.request_id,
@@ -49,6 +52,7 @@ export default function TriagePage() {
       } catch { /* storage full or unavailable */ }
     } catch {
       setError('Failed to connect to backend. Is uvicorn running?');
+      showToast('Triage failed — could not reach backend', 'error');
     } finally {
       setLoading(false);
     }

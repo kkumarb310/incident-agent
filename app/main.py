@@ -55,6 +55,12 @@ def get_metrics():
         return {"message": "No metrics yet. Run some incidents first."}
     return summary
 
+@app.get("/incidents")
+def get_incidents():
+    from app.database.operations import get_all_audit
+    rows = get_all_audit()
+    return {"incidents": rows, "total": len(rows)}
+
 @app.get("/audit")
 def get_audit():
     return {"entries": load_audit()}

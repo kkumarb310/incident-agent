@@ -10,3 +10,6 @@ export const submitFeedback = (request_id, score, comment) =>
 
 export const getMetrics = () =>
   axios.get(`${BASE}/metrics`);
+
+export const getIncidents = () =>
+  axios.get(`${BASE}/incidents`);

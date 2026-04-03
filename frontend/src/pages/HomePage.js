@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getMetrics } from '../api';
+
+const REFRESH_MS = 30000;
 
 function getHistory() {
   try { return JSON.parse(localStorage.getItem('incident_history') || '[]'); }
@@ -29,9 +31,15 @@ export default function HomePage({ onNavigate }) {
   const services = topServices(history);
   const maxSvc = services[0]?.[1] || 1;
 
-  useEffect(() => {
+  const fetchMetrics = useCallback(() => {
     getMetrics().then(r => setMetrics(r.data)).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    fetchMetrics();
+    const id = setInterval(fetchMetrics, REFRESH_MS);
+    return () => clearInterval(id);
+  }, [fetchMetrics]);
 
   const total     = metrics?.total_incidents  || history.length;
   const p1        = metrics?.severity_breakdown?.P1 || history.filter(i => i.severity === 'P1').length;

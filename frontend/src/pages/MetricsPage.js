@@ -1,24 +1,48 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getMetrics } from '../api';
+
+const REFRESH_MS = 30000;
 
 function getHistory() {
   try { return JSON.parse(localStorage.getItem('incident_history') || '[]'); }
   catch { return []; }
 }
 
+function RefreshBadge({ lastRefresh }) {
+  const [label, setLabel] = useState('just now');
+  useEffect(() => {
+    const tick = () => {
+      const secs = Math.round((Date.now() - lastRefresh) / 1000);
+      setLabel(secs < 5 ? 'just now' : `${secs}s ago`);
+    };
+    tick();
+    const id = setInterval(tick, 5000);
+    return () => clearInterval(id);
+  }, [lastRefresh]);
+  return <span className="refresh-badge">Updated {label}</span>;
+}
+
 export default function MetricsPage() {
-  const [data,    setData]    = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [range,   setRange]   = useState('all');
+  const [data,        setData]        = useState(null);
+  const [loading,     setLoading]     = useState(true);
+  const [range,       setRange]       = useState('all');
+  const [lastRefresh, setLastRefresh] = useState(Date.now());
   const history = getHistory();
 
-  useEffect(() => {
+  const fetchMetrics = useCallback(() => {
     getMetrics()
-      .then(r => setData(r.data))
+      .then(r => { setData(r.data); setLastRefresh(Date.now()); })
       .catch(() => setData(null))
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    fetchMetrics();
+    const id = setInterval(fetchMetrics, REFRESH_MS);
+    return () => clearInterval(id);
+  }, [fetchMetrics]);
+
+  // derived from localStorage
   const services = (() => {
     const c = {};
     history.forEach(i => (i.services || []).forEach(s => { c[s] = (c[s] || 0) + 1; }));
@@ -33,24 +57,25 @@ export default function MetricsPage() {
     ? Math.round(history.filter(i => i.result?.evaluation?.hallucination_detected).length / history.length * 100)
     : null;
 
+  // API-derived
   const totalIncidents = data?.total_incidents || history.length;
   const avgLatency = data?.avg_latency_ms
     ? Math.round(data.avg_latency_ms)
     : history.length ? Math.round(history.reduce((a, b) => a + b.latency, 0) / history.length) : 0;
   const avgScore = data?.avg_eval_score?.toFixed(1)
     || (history.length ? (history.reduce((a, b) => a + b.evalScore, 0) / history.length).toFixed(1) : '—');
-  const p1Count = data?.severity_breakdown?.P1 || history.filter(i => i.severity === 'P1').length;
+  const apiPassRate = data?.pass_rate != null ? Math.round(data.pass_rate * 100) : passRate;
 
-  const breakdown   = data?.score_breakdown    || {};
+  const breakdown    = data?.score_breakdown    || {};
   const sevBreakdown = data?.severity_breakdown || {};
+  const modelUsage   = data?.model_usage        || {};
   const maxScore = Math.max(...Object.values(breakdown), 1);
   const maxSev   = Math.max(...Object.values(sevBreakdown), 1);
+  const maxModel = Math.max(...Object.values(modelUsage), 1);
 
   const noData = (!data || data.message) && history.length === 0;
 
-  if (loading) return (
-    <div className="inner-page"><div className="no-data">Loading metrics...</div></div>
-  );
+  if (loading) return <div className="inner-page"><div className="no-data">Loading metrics...</div></div>;
 
   return (
     <div className="inner-page">
@@ -59,18 +84,18 @@ export default function MetricsPage() {
       <div className="page-topbar">
         <div>
           <h1 className="page-title">Metrics</h1>
-          <p className="page-sub">Observability dashboard — {totalIncidents} incidents processed</p>
+          <p className="page-sub">
+            Observability dashboard — {totalIncidents} incidents
+            {!noData && <RefreshBadge lastRefresh={lastRefresh} />}
+          </p>
         </div>
-        <div className="filter-pills">
-          {['7d', '30d', '90d', 'all'].map(r => (
-            <button
-              key={r}
-              className={`filter-pill ${range === r ? 'active' : ''}`}
-              onClick={() => setRange(r)}
-            >
-              {r}
-            </button>
-          ))}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div className="filter-pills">
+            {['7d', '30d', '90d', 'all'].map(r => (
+              <button key={r} className={`filter-pill ${range === r ? 'active' : ''}`} onClick={() => setRange(r)}>{r}</button>
+            ))}
+          </div>
+          <button className="qa-btn" onClick={fetchMetrics} title="Refresh now">↺</button>
         </div>
       </div>
 
@@ -92,9 +117,9 @@ export default function MetricsPage() {
           <div className="scard-sub">llm-as-judge</div>
         </div>
         <div className="scard">
-          <div className="scard-label">P1 Incidents</div>
-          <div className="scard-val red">{p1Count}</div>
-          <div className="scard-sub">critical severity</div>
+          <div className="scard-label">Pass Rate</div>
+          <div className="scard-val green">{apiPassRate != null ? `${apiPassRate}%` : '—'}</div>
+          <div className="scard-sub">eval passed</div>
         </div>
       </div>
 
@@ -102,7 +127,7 @@ export default function MetricsPage() {
         <div className="no-data">No metrics yet — run some incidents first.</div>
       ) : (
         <>
-          {/* ROW 1: Score + Severity */}
+          {/* ROW 1: Score Distribution + Severity Breakdown */}
           <div className="charts-row">
             <div className="panel">
               <div className="panel-head">
@@ -110,10 +135,9 @@ export default function MetricsPage() {
                 <span className="panel-title">Eval Score Distribution</span>
               </div>
               <div className="panel-body">
-                {Object.keys(breakdown).length === 0 ? (
-                  <div className="no-data-sm">No score data yet</div>
-                ) : (
-                  [5, 4, 3, 2, 1].map(score => (
+                {Object.keys(breakdown).length === 0
+                  ? <div className="no-data-sm">No score data yet</div>
+                  : [5, 4, 3, 2, 1].map(score => (
                     <div key={score} className="score-item">
                       <span className="score-lbl">{score}★</span>
                       <div className="score-track">
@@ -122,7 +146,7 @@ export default function MetricsPage() {
                       <span className="score-ct">{breakdown[score] || 0}</span>
                     </div>
                   ))
-                )}
+                }
               </div>
             </div>
 
@@ -137,10 +161,7 @@ export default function MetricsPage() {
                     <div key={sev} className="sev-item">
                       <span className={`sev-badge sev-${sev.toLowerCase()} sev-item-label`}>{sev}</span>
                       <div className="sev-track">
-                        <div
-                          className={`sev-fill sev-${sev.toLowerCase()}-fill`}
-                          style={{ width: `${((sevBreakdown[sev] || 0) / maxSev) * 100}%` }}
-                        />
+                        <div className={`sev-fill sev-${sev.toLowerCase()}-fill`} style={{ width: `${((sevBreakdown[sev] || 0) / maxSev) * 100}%` }} />
                       </div>
                       <span className="sev-ct">{sevBreakdown[sev] || 0}</span>
                     </div>
@@ -158,7 +179,7 @@ export default function MetricsPage() {
             </div>
           </div>
 
-          {/* ROW 2: Services + Agent Performance */}
+          {/* ROW 2: Top Services + Agent Performance */}
           <div className="charts-row" style={{ marginTop: 16 }}>
             <div className="panel">
               <div className="panel-head">
@@ -166,10 +187,9 @@ export default function MetricsPage() {
                 <span className="panel-title">Top Affected Services</span>
               </div>
               <div className="panel-body">
-                {services.length === 0 ? (
-                  <div className="no-data-sm">No service data yet</div>
-                ) : (
-                  services.map(([name, count]) => (
+                {services.length === 0
+                  ? <div className="no-data-sm">No service data yet — load demo data or run triages</div>
+                  : services.map(([name, count]) => (
                     <div key={name} className="service-row">
                       <span className="service-name">{name}</span>
                       <div className="service-track">
@@ -178,7 +198,7 @@ export default function MetricsPage() {
                       <span className="service-ct">{count}</span>
                     </div>
                   ))
-                )}
+                }
               </div>
             </div>
 
@@ -192,13 +212,13 @@ export default function MetricsPage() {
                   <div className="eval-card">
                     <div className="lbl">Pass Rate</div>
                     <div className="eval-num" style={{ color: 'var(--green)' }}>
-                      {passRate !== null ? `${passRate}%` : '—'}
+                      {apiPassRate != null ? `${apiPassRate}%` : '—'}
                     </div>
                   </div>
                   <div className="eval-card">
                     <div className="lbl">Hallucination</div>
                     <div className="eval-num" style={{ color: hallRate > 10 ? 'var(--red)' : 'var(--green)' }}>
-                      {hallRate !== null ? `${hallRate}%` : '—'}
+                      {hallRate != null ? `${hallRate}%` : '—'}
                     </div>
                   </div>
                   <div className="eval-card">
@@ -206,25 +226,17 @@ export default function MetricsPage() {
                     <div className="eval-num">{avgScore}</div>
                   </div>
                 </div>
-
                 {history.length > 0 && (
                   <div style={{ marginTop: 18 }}>
                     <div className="sec-label" style={{ marginBottom: 8 }}>Eval Score Trend</div>
                     <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 52 }}>
                       {[...history].reverse().slice(0, 14).reverse().map((item, i) => (
-                        <div
-                          key={i}
-                          style={{
-                            flex: 1,
-                            height: `${(item.evalScore / 5) * 100}%`,
-                            background: item.evalScore >= 4 ? 'var(--accent)' : item.evalScore >= 3 ? 'var(--amber)' : 'var(--red)',
-                            borderRadius: '2px 2px 0 0',
-                            opacity: 0.85,
-                            minHeight: 4,
-                            transition: 'height 0.5s ease',
-                          }}
-                          title={`${item.title}: ${item.evalScore}/5`}
-                        />
+                        <div key={i} style={{
+                          flex: 1, minHeight: 4,
+                          height: `${(item.evalScore / 5) * 100}%`,
+                          background: item.evalScore >= 4 ? 'var(--accent)' : item.evalScore >= 3 ? 'var(--amber)' : 'var(--red)',
+                          borderRadius: '2px 2px 0 0', opacity: 0.85,
+                        }} title={`${item.title}: ${item.evalScore}/5`} />
                       ))}
                     </div>
                     <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 5, fontFamily: 'var(--font-mono)' }}>
@@ -235,6 +247,35 @@ export default function MetricsPage() {
               </div>
             </div>
           </div>
+
+          {/* ROW 3: Model Usage */}
+          {Object.keys(modelUsage).length > 0 && (
+            <div style={{ marginTop: 16 }}>
+              <div className="panel">
+                <div className="panel-head">
+                  <div className="panel-dot" />
+                  <span className="panel-title">Model Usage</span>
+                </div>
+                <div className="panel-body">
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+                    {Object.entries(modelUsage).map(([model, count]) => (
+                      <div key={model} className="eval-card" style={{ textAlign: 'left' }}>
+                        <div className="lbl" style={{ marginBottom: 8 }}>{model}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div className="service-track" style={{ flex: 1 }}>
+                            <div className="service-fill" style={{ width: `${(count / maxModel) * 100}%`, background: 'var(--purple)' }} />
+                          </div>
+                          <span style={{ fontSize: 13, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)', flexShrink: 0 }}>
+                            {count} calls
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>

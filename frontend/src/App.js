@@ -3,6 +3,7 @@ import HomePage from './pages/HomePage';
 import TriagePage from './pages/TriagePage';
 import MetricsPage from './pages/MetricsPage';
 import HistoryPage from './pages/HistoryPage';
+import Toast from './components/Toast';
 import './App.css';
 
 const NAV = [
@@ -54,6 +55,7 @@ export default function App() {
       <main className="app-main">
         <CurrentPage onNavigate={setPage} />
       </main>
+      <Toast />
     </div>
   );
 }
