@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import HomePage from './pages/HomePage';
-import TriagePage from './pages/TriagePage';
+import HomePage    from './pages/HomePage';
+import TriagePage  from './pages/TriagePage';
 import MetricsPage from './pages/MetricsPage';
 import HistoryPage from './pages/HistoryPage';
+import ReadmePage  from './pages/ReadmePage';
 import Toast from './components/Toast';
 import './App.css';
 
@@ -11,6 +12,7 @@ const NAV = [
   { id: 'triage',  icon: '⚡', label: 'Triage'    },
   { id: 'history', icon: '◫', label: 'History'   },
   { id: 'metrics', icon: '◈', label: 'Metrics'   },
+  { id: 'readme',  icon: '📖', label: 'Docs'      },
 ];
 
 const PAGE_MAP = {
@@ -18,6 +20,7 @@ const PAGE_MAP = {
   triage:  TriagePage,
   history: HistoryPage,
   metrics: MetricsPage,
+  readme:  ReadmePage,
 };
 
 export default function App() {
