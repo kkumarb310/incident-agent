@@ -1,5 +1,9 @@
 import json
 from app.llm.claude_client import call_claude
+from app.guardrails.output_guard import (
+    parse_and_validate_analysis,
+    build_correction_prompt,
+)
 
 SYSTEM_PROMPT = """You are an expert SRE incident analyst.
 You will receive a new incident and similar past incidents as context.
@@ -13,10 +17,14 @@ Respond in JSON only. No extra text. Use this exact format:
   "confidence": 0.0 to 1.0
 }"""
 
+MAX_RETRIES = 2
+
+
 def run(incident_description: str, similar_incidents: list[str]) -> dict:
     """
     Takes incident + context from retrieval agent.
-    Returns structured diagnosis.
+    Returns validated, structured diagnosis.
+    Retries up to MAX_RETRIES times if output fails schema validation.
     """
     print("[Analysis Agent] Analyzing incident...")
 
@@ -30,15 +38,25 @@ Similar past incidents for context:
 
 Respond with JSON only."""
 
-    result = call_claude(prompt=prompt, system=SYSTEM_PROMPT)
+    last_error = None
+    current_prompt = prompt
 
-    # Strip markdown code fences if Claude adds them
-    text = result["text"].strip()
-    text = text.replace("```json", "").replace("```", "").strip()
+    for attempt in range(1, MAX_RETRIES + 2):
+        result = call_claude(prompt=current_prompt, system=SYSTEM_PROMPT)
+        raw    = result["text"]
 
-    parsed = json.loads(text)
-    parsed["model_used"] = result["model"]
+        try:
+            parsed = parse_and_validate_analysis(raw, model_used=result["model"])
+            if attempt > 1:
+                print(f"[Analysis Agent] Validation passed on attempt {attempt}")
+            print(f"[Analysis Agent] Severity: {parsed['severity']} | Confidence: {parsed['confidence']}")
+            return parsed
 
-    print(f"[Analysis Agent] Severity: {parsed['severity']} | Confidence: {parsed['confidence']}")
+        except (ValueError, Exception) as e:
+            last_error = str(e)
+            print(f"[Analysis Agent] Attempt {attempt} failed validation: {last_error}")
+            if attempt <= MAX_RETRIES:
+                current_prompt = build_correction_prompt(prompt, raw, last_error)
 
-    return parsed
+    # All retries exhausted — raise so orchestrator can handle
+    raise ValueError(f"[Analysis Agent] Failed after {MAX_RETRIES + 1} attempts: {last_error}")

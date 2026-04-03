@@ -26,7 +26,15 @@ def _call(prompt: str, system: str, model_key: str) -> str:
     )
     return response.content[0].text
 
-def call_claude(prompt: str, system: str = "") -> dict:
+def call_claude(prompt: str, system: str = "", model_override: str = None) -> dict:
+    if model_override:
+        response = client.messages.create(
+            model=model_override,
+            max_tokens=256,
+            system=system,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return {"text": response.content[0].text, "model": model_override}
     try:
         text = _call(prompt, system, "primary")
         return {"text": text, "model": MODELS["primary"]}

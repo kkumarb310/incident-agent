@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from app.agents.orchestrator import run as orchestrate
 from app.feedback.store import save_feedback, load_feedback, load_flagged
 from app.observability.logger import load_metrics, load_audit
+from app.guardrails.input_guard import check_input
 from collections import Counter
 import statistics
 from app.database.operations import get_metrics_summary
@@ -38,6 +39,12 @@ class Feedback(BaseModel):
 
 @app.post("/triage")
 def triage(incident: Incident):
+    guard = check_input(incident.title, incident.description)
+    if not guard.passed:
+        raise HTTPException(status_code=422, detail={
+            "code":    guard.code,
+            "message": guard.reason,
+        })
     return orchestrate(incident.model_dump())
 
 @app.post("/feedback")

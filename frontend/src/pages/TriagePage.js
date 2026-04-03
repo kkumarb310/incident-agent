@@ -99,9 +99,11 @@ export default function TriagePage() {
         const prev = JSON.parse(localStorage.getItem('incident_history') || '[]');
         localStorage.setItem('incident_history', JSON.stringify([...prev, entry]));
       } catch { /**/ }
-    } catch {
-      setError('Failed to connect to backend.');
-      showToast('Triage failed — could not reach backend', 'error');
+    } catch (err) {
+      const detail = err?.response?.data?.detail;
+      const msg = detail?.message || 'Failed to connect to backend.';
+      setError(msg);
+      showToast(msg, 'error');
     } finally {
       setLoading(false);
     }
