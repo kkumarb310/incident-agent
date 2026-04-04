@@ -7,12 +7,18 @@ import ReadmePage  from './pages/ReadmePage';
 import Toast from './components/Toast';
 import './App.css';
 
-const NAV = [
-  { id: 'readme',  icon: '◉', label: 'Product Overview' },
-  { id: 'home',    icon: '⬡', label: 'Dashboard'        },
-  { id: 'triage',  icon: '⚡', label: 'Triage'           },
-  { id: 'history', icon: '◫', label: 'History'          },
-  { id: 'metrics', icon: '◈', label: 'Metrics'          },
+const NAV_TOP = [
+  { id: 'readme', icon: '◉', label: 'Product Overview' },
+];
+
+const NAV_APP = [
+  { id: 'home',    icon: '▦',  label: 'Dashboard' },
+  { id: 'triage',  icon: '⚡', label: 'Triage'    },
+  { id: 'history', icon: '☰',  label: 'History'   },
+  { id: 'metrics', icon: '◈',  label: 'Metrics'   },
+];
+
+const NAV_EXTERNAL = [
   { id: 'apidocs', icon: '⇄', label: 'API Docs', href: 'https://incident-agent-production.up.railway.app/docs' },
 ];
 
@@ -36,7 +42,33 @@ export default function App() {
           <span className="brand-text">IncidentAI</span>
         </div>
         <nav className="sidebar-nav">
-          {NAV.map(item => item.href ? (
+          {NAV_TOP.map(item => (
+            <button
+              key={item.id}
+              className={`sidebar-item ${page === item.id ? 'active' : ''}`}
+              onClick={() => setPage(item.id)}
+            >
+              <span className="sidebar-icon">{item.icon}</span>
+              <span className="sidebar-label">{item.label}</span>
+            </button>
+          ))}
+
+          <div className="sidebar-divider"><span className="sidebar-divider-label">App</span></div>
+
+          {NAV_APP.map(item => (
+            <button
+              key={item.id}
+              className={`sidebar-item ${page === item.id ? 'active' : ''}`}
+              onClick={() => setPage(item.id)}
+            >
+              <span className="sidebar-icon">{item.icon}</span>
+              <span className="sidebar-label">{item.label}</span>
+            </button>
+          ))}
+
+          <div className="sidebar-divider" />
+
+          {NAV_EXTERNAL.map(item => (
             <a
               key={item.id}
               className="sidebar-item"
@@ -48,15 +80,6 @@ export default function App() {
               <span className="sidebar-label">{item.label}</span>
               <span className="sidebar-ext">↗</span>
             </a>
-          ) : (
-            <button
-              key={item.id}
-              className={`sidebar-item ${page === item.id ? 'active' : ''}`}
-              onClick={() => setPage(item.id)}
-            >
-              <span className="sidebar-icon">{item.icon}</span>
-              <span className="sidebar-label">{item.label}</span>
-            </button>
           ))}
         </nav>
         <div className="sidebar-footer">
