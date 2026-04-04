@@ -3,10 +3,10 @@ import { triageIncident, submitFeedback } from '../api';
 import { showToast } from '../toast';
 
 const STEPS = [
-  { label: 'Retrieving similar incidents...', icon: '◈' },
-  { label: 'Analyzing root cause...',         icon: '⚙' },
-  { label: 'Generating recommendations...',   icon: '⬡' },
-  { label: 'Evaluating response quality...',  icon: '◫' },
+  { label: 'Retrieving similar incidents...', icon: '◈', detail: 'Semantic search over 30 past incidents in ChromaDB vector store' },
+  { label: 'Analyzing root cause...',         icon: '⚙', detail: 'Claude classifies severity (P1–P3), identifies root cause chain' },
+  { label: 'Generating recommendations...',   icon: '⬡', detail: 'Producing immediate actions, permanent fix, escalation path + ETA' },
+  { label: 'Evaluating response quality...',  icon: '◫', detail: 'LLM-as-judge scores accuracy, quality, and checks for hallucination' },
 ];
 
 const EXAMPLES = [
@@ -68,6 +68,9 @@ export default function TriagePage() {
   const [checked,      setChecked]      = useState({});
   const [copied,       setCopied]       = useState(false);
   const recentHistory = getLocalHistory().slice(-3).reverse();
+  const [tipDismissed, setTipDismissed] = useState(
+    () => localStorage.getItem('triage_tip_dismissed') === '1'
+  );
 
   useEffect(() => {
     if (!loading) { setStepIdx(-1); return; }
@@ -185,6 +188,17 @@ export default function TriagePage() {
             </div>
             <div className="panel-body">
 
+              {/* Pro Tip */}
+              {!tipDismissed && (
+                <div className="rm-callout rm-callout-amber" style={{ marginBottom: 14, position: 'relative', paddingRight: 32 }}>
+                  <button
+                    onClick={() => { setTipDismissed(true); localStorage.setItem('triage_tip_dismissed', '1'); }}
+                    style={{ position: 'absolute', top: 6, right: 10, background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}
+                  >×</button>
+                  <strong>Pro tip:</strong> Include error messages, service names, and when symptoms started. More context = higher eval score.
+                </div>
+              )}
+
               {/* Quick-fill examples */}
               <div style={{ marginBottom: 14 }}>
                 <div className="field-label-sm">Quick examples</div>
@@ -257,6 +271,31 @@ export default function TriagePage() {
             </div>
           )}
 
+          {/* Last 7 Severities */}
+          {(() => {
+            const sevHistory = getLocalHistory().slice(-7);
+            const sevColor = s => s === 'P1' ? 'var(--red)' : s === 'P2' ? 'var(--amber)' : 'var(--green)';
+            return sevHistory.length >= 3 ? (
+              <div className="panel">
+                <div className="panel-head">
+                  <div className="panel-dot" />
+                  <span className="panel-title">Last 7 Severities</span>
+                </div>
+                <div className="panel-body" style={{ padding: '12px 18px' }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                    {sevHistory.map((item, i) => (
+                      <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flex: 1 }}>
+                        <div style={{ width: 12, height: 12, borderRadius: '50%', background: sevColor(item.severity), boxShadow: `0 0 5px ${sevColor(item.severity)}` }} title={`${item.severity} · ${item.title}`} />
+                        <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{item.severity}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 8, fontFamily: 'var(--font-mono)' }}>oldest → newest</div>
+                </div>
+              </div>
+            ) : null;
+          })()}
+
           {/* Pipeline info card */}
           <div className="panel">
             <div className="panel-head">
@@ -308,18 +347,21 @@ export default function TriagePage() {
                       ? <span className="step-done-icon">✓</span>
                       : i === stepIdx ? <div className="spin" />
                       : <div className="step-dot-idle" />}
-                    <span>{s.icon}</span>
-                    {s.label}
-                    {i === stepIdx && (
-                      <span style={{ marginLeft: 'auto', fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-                        running
-                      </span>
-                    )}
-                    {i < stepIdx && (
-                      <span style={{ marginLeft: 'auto', fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--green)' }}>
-                        done
-                      </span>
-                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span>{s.icon}</span>
+                        <span>{s.label}</span>
+                        {i === stepIdx && (
+                          <span style={{ marginLeft: 'auto', fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>running</span>
+                        )}
+                        {i < stepIdx && (
+                          <span style={{ marginLeft: 'auto', fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--green)' }}>done</span>
+                        )}
+                      </div>
+                      {i === stepIdx && (
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3, fontFamily: 'var(--font-mono)' }}>{s.detail}</div>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

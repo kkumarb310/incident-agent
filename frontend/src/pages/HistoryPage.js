@@ -49,6 +49,14 @@ export default function HistoryPage() {
   const [filter,   setFilter]   = useState('all');
   const [page,     setPage]     = useState(1);
   const [selected, setSelected] = useState(null);
+  const [sortKey,  setSortKey]  = useState('date');
+  const [sortDir,  setSortDir]  = useState('desc');
+
+  const toggleSort = (key) => {
+    if (sortKey === key) setSortDir(d => d === 'desc' ? 'asc' : 'desc');
+    else { setSortKey(key); setSortDir('desc'); }
+    setPage(1);
+  };
 
   const load = () => {
     setLoading(true);
@@ -74,8 +82,15 @@ export default function HistoryPage() {
     .filter(i => filter === 'all' || i.severity === filter)
     .filter(i => !search || i.title?.toLowerCase().includes(search.toLowerCase()));
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
-  const rows = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+  const sorted = [...filtered].sort((a, b) => {
+    const mult = sortDir === 'desc' ? -1 : 1;
+    if (sortKey === 'date')      return mult * (new Date(a.date) - new Date(b.date));
+    if (sortKey === 'evalScore') return mult * ((a.evalScore || 0) - (b.evalScore || 0));
+    return 0;
+  });
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PER_PAGE));
+  const rows = sorted.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
   const changeFilter = f => { setFilter(f); setPage(1); };
   const changeSearch = v => { setSearch(v);  setPage(1); };
@@ -144,8 +159,12 @@ export default function HistoryPage() {
         <div className="history-table-head">
           <span className="th">Sev</span>
           <span className="th">Title</span>
-          <span className="th">Date</span>
-          <span className="th">Eval</span>
+          <span className={`th th-sort ${sortKey === 'date' ? 'active' : ''}`} onClick={() => toggleSort('date')}>
+            Date {sortKey === 'date' ? (sortDir === 'desc' ? '↓' : '↑') : '↕'}
+          </span>
+          <span className={`th th-sort ${sortKey === 'evalScore' ? 'active' : ''}`} onClick={() => toggleSort('evalScore')}>
+            Eval {sortKey === 'evalScore' ? (sortDir === 'desc' ? '↓' : '↑') : '↕'}
+          </span>
           <span className="th">Latency</span>
           <span className="th"></span>
         </div>
@@ -161,21 +180,30 @@ export default function HistoryPage() {
               </div>
             ) : 'No results match your search or filter.'}
           </div>
-        ) : (
-          rows.map(item => (
-            <div key={item.id} className="history-row">
-              <span className={`sev-badge ${sevClass(item.severity)}`}>{item.severity}</span>
-              <span className="hr-title" title={item.title}>{item.title}</span>
-              <span className="hr-date">{fmtDate(item.date)}</span>
-              <span className="hr-score">{item.evalScore}/5</span>
-              <span className="hr-latency">{item.latency}ms</span>
-              {item.result
-                ? <button className="btn-view" onClick={() => setSelected(item)}>View</button>
-                : <span className="hr-latency">—</span>
-              }
-            </div>
-          ))
-        )}
+        ) : (() => {
+          let lastDay = null;
+          return rows.map(item => {
+            const day = new Date(item.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+            const showBadge = sortKey === 'date' && day !== lastDay;
+            lastDay = day;
+            return (
+              <div key={item.id}>
+                {showBadge && <div className="date-group-badge">{day}</div>}
+                <div className="history-row">
+                  <span className={`sev-badge ${sevClass(item.severity)}`}>{item.severity}</span>
+                  <span className="hr-title" title={item.title}>{item.title}</span>
+                  <span className="hr-date">{fmtDate(item.date)}</span>
+                  <span className="hr-score">{item.evalScore}/5</span>
+                  <span className="hr-latency">{item.latency}ms</span>
+                  {item.result
+                    ? <button className="btn-view" onClick={() => setSelected(item)}>View</button>
+                    : <span className="hr-latency">—</span>
+                  }
+                </div>
+              </div>
+            );
+          });
+        })()}
 
         {totalPages > 1 && (
           <div className="pagination">

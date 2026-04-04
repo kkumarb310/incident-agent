@@ -24,7 +24,16 @@ function topServices(history) {
   return Object.entries(c).sort((a, b) => b[1] - a[1]).slice(0, 6);
 }
 
-/** Merge backend audit rows + localStorage, dedup by id, newest first */
+function trendArrow(recent, prev, key, lowerIsBetter = false) {
+  if (recent.length < 2 || prev.length < 2) return null;
+  const avg = arr => arr.reduce((s, i) => s + (i[key] || 0), 0) / arr.length;
+  const diff = avg(recent) - avg(prev);
+  if (Math.abs(diff) < 0.001) return null;
+  const up = diff > 0;
+  const good = lowerIsBetter ? !up : up;
+  return { arrow: up ? '↑' : '↓', good };
+}
+
 function mergeHistory(backendRows, localEntries) {
   const localMap = {};
   localEntries.forEach(e => { localMap[e.id] = e; });
@@ -37,6 +46,7 @@ function mergeHistory(backendRows, localEntries) {
     evalScore: r.eval_score,
     latency:   r.latency_ms,
     services:  localMap[r.request_id]?.services || [],
+    result:    localMap[r.request_id]?.result   || null,
   }));
 
   const backendIds = new Set(backendRows.map(r => r.request_id));
@@ -47,8 +57,9 @@ function mergeHistory(backendRows, localEntries) {
 }
 
 export default function HomePage({ onNavigate }) {
-  const [metrics, setMetrics] = useState(null);
-  const [history, setHistory] = useState([]);
+  const [metrics,    setMetrics]    = useState(null);
+  const [history,    setHistory]    = useState([]);
+  const [drawerItem, setDrawerItem] = useState(null);
 
   const fetchAll = useCallback(() => {
     getMetrics().then(r => setMetrics(r.data)).catch(() => {});
@@ -84,8 +95,31 @@ export default function HomePage({ onNavigate }) {
     || (history.length ? (history.reduce((a, b) => a + (b.evalScore || 0), 0) / history.length).toFixed(1) : '—');
   const feedScore = metrics?.avg_feedback_score?.toFixed(1) || '—';
 
+  // System status from recent 10
+  const recentTen = history.slice(0, 10);
+  const recentPassRate = recentTen.length
+    ? Math.round(recentTen.filter(i => i.result?.evaluation?.passed).length / recentTen.length * 100)
+    : null;
+  const sysStatus = recentPassRate === null ? null
+    : recentPassRate >= 80 ? { label: 'AI Pipeline Operational', cls: 'green' }
+    : recentPassRate >= 60 ? { label: 'AI Pipeline Degraded', cls: 'amber' }
+    : { label: 'AI Pipeline Investigating', cls: 'red' };
+
+  // Trend arrows (last 5 vs previous 5)
+  const h5a = history.slice(0, 5);
+  const h5b = history.slice(5, 10);
+  const trendEval    = trendArrow(h5a, h5b, 'evalScore');
+  const trendLatency = trendArrow(h5a, h5b, 'latency', true);
+
   const sevDot   = s => s === 'P1' ? 'p1' : s === 'P2' ? 'p2' : 'p3';
   const sevClass = s => s === 'P1' ? 'sev-p1' : s === 'P2' ? 'sev-p2' : 'sev-p3';
+
+  // MTTR sparkline
+  const mttrItems = history
+    .filter(i => i.result?.recommendations?.estimated_resolution_mins)
+    .slice(0, 10)
+    .reverse();
+  const maxMttr = Math.max(...mttrItems.map(i => i.result.recommendations.estimated_resolution_mins), 1);
 
   return (
     <div className="inner-page">
@@ -93,13 +127,23 @@ export default function HomePage({ onNavigate }) {
       {/* HEADER */}
       <div className="page-topbar">
         <div>
-          <h1 className="page-title">Overview</h1>
+          <h1 className="page-title">Dashboard</h1>
           <p className="page-sub">AI-powered incident management dashboard</p>
         </div>
         <button className="btn-run btn-inline" onClick={() => onNavigate('triage')}>
           ⚡ New Triage
         </button>
       </div>
+
+      {/* SYSTEM STATUS BANNER */}
+      {sysStatus && (
+        <div className="sys-status-bar">
+          <span className={`sys-status-dot ${sysStatus.cls}`} />
+          <span className="sys-status-label">{sysStatus.label}</span>
+          <span className="sys-status-meta">{recentPassRate}% pass rate · last {recentTen.length} incidents</span>
+          <span className="sys-status-time">Auto-refreshes every 30s</span>
+        </div>
+      )}
 
       {/* STAT CARDS */}
       <div className="stat-row four">
@@ -116,12 +160,18 @@ export default function HomePage({ onNavigate }) {
         <div className="scard">
           <div className="scard-label">Avg Eval Score</div>
           <div className="scard-val amber">{evalScore}<span className="scard-unit">/5</span></div>
-          <div className="scard-sub">llm-as-judge</div>
+          <div className="scard-sub">
+            llm-as-judge
+            {trendEval && <span className={`trend-arrow ${trendEval.good ? 'good' : 'bad'}`}>{trendEval.arrow}</span>}
+          </div>
         </div>
         <div className="scard">
           <div className="scard-label">Avg Latency</div>
           <div className="scard-val">{latency > 0 ? `${latency}` : '—'}<span className="scard-unit">{latency > 0 ? 'ms' : ''}</span></div>
-          <div className="scard-sub">end-to-end</div>
+          <div className="scard-sub">
+            end-to-end
+            {trendLatency && <span className={`trend-arrow ${trendLatency.good ? 'good' : 'bad'}`}>{trendLatency.arrow}</span>}
+          </div>
         </div>
       </div>
 
@@ -145,7 +195,12 @@ export default function HomePage({ onNavigate }) {
             <>
               <div className="feed-list">
                 {recent.map(item => (
-                  <div key={item.id} className="feed-item">
+                  <div
+                    key={item.id}
+                    className="feed-item"
+                    style={{ cursor: item.result ? 'pointer' : 'default' }}
+                    onClick={() => item.result && setDrawerItem(item)}
+                  >
                     <div className={`feed-sev-dot ${sevDot(item.severity)}`} />
                     <div className="feed-content">
                       <div className="feed-title">{item.title}</div>
@@ -156,14 +211,12 @@ export default function HomePage({ onNavigate }) {
                       </div>
                     </div>
                     <span className="feed-score">{item.evalScore}★</span>
+                    {item.result && <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 2 }}>›</span>}
                   </div>
                 ))}
               </div>
               {history.length > 10 && (
-                <button
-                  className="feed-view-all"
-                  onClick={() => onNavigate('history')}
-                >
+                <button className="feed-view-all" onClick={() => onNavigate('history')}>
                   View all {history.length} incidents →
                 </button>
               )}
@@ -230,6 +283,34 @@ export default function HomePage({ onNavigate }) {
             </div>
           </div>
 
+          {/* MTTR TREND */}
+          {mttrItems.length >= 3 && (
+            <div className="panel">
+              <div className="panel-head">
+                <div className="panel-dot" />
+                <span className="panel-title">MTTR Trend</span>
+              </div>
+              <div className="panel-body">
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 44 }}>
+                  {mttrItems.map((item, i) => {
+                    const mins = item.result.recommendations.estimated_resolution_mins;
+                    const color = mins <= 30 ? 'var(--accent)' : mins <= 60 ? 'var(--amber)' : 'var(--red)';
+                    return (
+                      <div key={i} style={{
+                        flex: 1, minHeight: 4,
+                        height: `${(mins / maxMttr) * 100}%`,
+                        background: color, borderRadius: '2px 2px 0 0', opacity: 0.85,
+                      }} title={`${item.title}: ${mins}m ETA`} />
+                    );
+                  })}
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 5, fontFamily: 'var(--font-mono)' }}>
+                  last {mttrItems.length} incidents · mins to resolve
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* QUICK ACTIONS */}
           <div className="panel">
             <div className="panel-head">
@@ -254,6 +335,90 @@ export default function HomePage({ onNavigate }) {
 
         </div>
       </div>
+
+      {/* SLIDE-IN DRAWER */}
+      {drawerItem && (
+        <div
+          className="modal-overlay"
+          style={{ justifyContent: 'flex-end', padding: 0, alignItems: 'stretch' }}
+          onClick={() => setDrawerItem(null)}
+        >
+          <div className="modal-panel drawer-panel" onClick={e => e.stopPropagation()}>
+            <div className="modal-head">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span className={`sev-badge ${sevClass(drawerItem.severity)}`}>{drawerItem.severity}</span>
+                <span style={{ fontWeight: 600, fontSize: 14 }}>{drawerItem.title}</span>
+              </div>
+              <button className="modal-close" onClick={() => setDrawerItem(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              {drawerItem.result ? (
+                <>
+                  <div className="result-meta" style={{ padding: '8px 0 14px' }}>
+                    <span className="mpill hi">ID: {drawerItem.result.request_id}</span>
+                    <span className="mpill">{drawerItem.result.latency_ms}ms</span>
+                    <span className="mpill">{drawerItem.result.context_used} retrieved</span>
+                    {drawerItem.result.pii_masked && <span className="mpill">PII masked</span>}
+                  </div>
+                  <div className="rsec" style={{ paddingLeft: 0, paddingRight: 0 }}>
+                    <div className="sec-label">Root Cause</div>
+                    <p className="root-cause">{drawerItem.result.analysis.root_cause}</p>
+                    <div className="tags" style={{ marginTop: 8 }}>
+                      {drawerItem.result.analysis.affected_services.map(s => <span key={s} className="tag">{s}</span>)}
+                    </div>
+                  </div>
+                  <div className="rsec" style={{ paddingLeft: 0, paddingRight: 0 }}>
+                    <div className="sec-label">Immediate Actions</div>
+                    <div className="actions">
+                      {drawerItem.result.recommendations.immediate_actions.map((a, i) => (
+                        <div key={i} className="action-item">
+                          <span className="a-num">{String(i + 1).padStart(2, '0')}</span>{a}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="extra-row" style={{ marginTop: 10 }}>
+                      {drawerItem.result.recommendations.escalate_to && (
+                        <span className="pill-esc">↑ {drawerItem.result.recommendations.escalate_to}</span>
+                      )}
+                      <span className="pill-eta">ETA {drawerItem.result.recommendations.estimated_resolution_mins}m</span>
+                    </div>
+                  </div>
+                  <div className="rsec" style={{ paddingLeft: 0, paddingRight: 0, borderBottom: 'none' }}>
+                    <div className="sec-label">Evaluation</div>
+                    <div className="eval-grid">
+                      <div className="eval-card">
+                        <div className="lbl">Score</div>
+                        <div className="eval-num">{drawerItem.result.evaluation.overall_score}/5</div>
+                      </div>
+                      <div className="eval-card">
+                        <div className="lbl">Hallucination</div>
+                        {drawerItem.result.evaluation.hallucination_detected
+                          ? <span className="badge-no">Detected</span>
+                          : <span className="badge-ok">None</span>}
+                      </div>
+                      <div className="eval-card">
+                        <div className="lbl">Status</div>
+                        {drawerItem.result.evaluation.passed
+                          ? <span className="badge-ok">Passed</span>
+                          : <span className="badge-no">Failed</span>}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div style={{ padding: '16px 0', color: 'var(--text-muted)', fontSize: 13 }}>
+                  <div className="result-meta" style={{ padding: '0 0 14px' }}>
+                    <span className={`sev-badge ${sevClass(drawerItem.severity)}`}>{drawerItem.severity}</span>
+                    <span className="mpill">{drawerItem.latency}ms</span>
+                    <span className="mpill">{drawerItem.evalScore}/5 eval</span>
+                  </div>
+                  Full detail available for incidents triaged in this session.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

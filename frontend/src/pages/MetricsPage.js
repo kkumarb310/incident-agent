@@ -27,7 +27,12 @@ export default function MetricsPage() {
   const [loading,     setLoading]     = useState(true);
   const [range,       setRange]       = useState('all');
   const [lastRefresh, setLastRefresh] = useState(Date.now());
-  const history = getHistory();
+  const allHistory = getHistory();
+  const rangeDays = { '7d': 7, '30d': 30, '90d': 90, 'all': Infinity };
+  const now = Date.now();
+  const history = range === 'all'
+    ? allHistory
+    : allHistory.filter(i => (now - new Date(i.date).getTime()) / 86400000 <= rangeDays[range]);
 
   const fetchMetrics = useCallback(() => {
     getMetrics()
@@ -75,6 +80,31 @@ export default function MetricsPage() {
 
   const noData = (!data || data.message) && history.length === 0;
 
+  // Trend arrows
+  const h5a = history.slice(0, 5);
+  const h5b = history.slice(5, 10);
+  function trendArrow(recent, prev, key, lowerIsBetter = false) {
+    if (recent.length < 2 || prev.length < 2) return null;
+    const avg = arr => arr.reduce((s, i) => s + (i[key] || 0), 0) / arr.length;
+    const diff = avg(recent) - avg(prev);
+    if (Math.abs(diff) < 0.001) return null;
+    const up = diff > 0;
+    return { arrow: up ? '↑' : '↓', good: lowerIsBetter ? !up : up };
+  }
+  const trendLatency = trendArrow(h5a, h5b, 'latency', true);
+  const trendEval    = trendArrow(h5a, h5b, 'evalScore');
+
+  // System health score
+  const healthScore = !noData ? Math.max(0, Math.min(100,
+    100
+    - (apiPassRate != null && apiPassRate < 80 ? 20 : 0)
+    - (hallRate != null && hallRate > 5 ? 15 : 0)
+    - (parseFloat(avgScore) < 4 ? 10 : 0)
+    - (avgLatency > 5000 ? 10 : 0)
+  )) : null;
+  const healthColor = healthScore >= 80 ? 'var(--green)' : healthScore >= 60 ? 'var(--amber)' : 'var(--red)';
+  const healthLabel = healthScore >= 80 ? 'Healthy' : healthScore >= 60 ? 'Degraded' : 'Critical';
+
   if (loading) return <div className="inner-page"><div className="no-data">Loading metrics...</div></div>;
 
   return (
@@ -86,6 +116,7 @@ export default function MetricsPage() {
           <h1 className="page-title">Metrics</h1>
           <p className="page-sub">
             Observability dashboard — {totalIncidents} incidents
+            {range !== 'all' && <span style={{ color: 'var(--text-muted)', marginLeft: 6, fontSize: 11, fontFamily: 'var(--font-mono)' }}>(local data · {range})</span>}
             {!noData && <RefreshBadge lastRefresh={lastRefresh} />}
           </p>
         </div>
@@ -109,12 +140,18 @@ export default function MetricsPage() {
         <div className="scard">
           <div className="scard-label">Avg Latency</div>
           <div className="scard-val">{avgLatency > 0 ? avgLatency : '—'}<span className="scard-unit">{avgLatency > 0 ? 'ms' : ''}</span></div>
-          <div className="scard-sub">end to end</div>
+          <div className="scard-sub">
+            end to end
+            {trendLatency && <span className={`trend-arrow ${trendLatency.good ? 'good' : 'bad'}`}>{trendLatency.arrow}</span>}
+          </div>
         </div>
         <div className="scard">
           <div className="scard-label">Avg Eval Score</div>
           <div className="scard-val amber">{avgScore}<span className="scard-unit">/5</span></div>
-          <div className="scard-sub">llm-as-judge</div>
+          <div className="scard-sub">
+            llm-as-judge
+            {trendEval && <span className={`trend-arrow ${trendEval.good ? 'good' : 'bad'}`}>{trendEval.arrow}</span>}
+          </div>
         </div>
         <div className="scard">
           <div className="scard-label">Pass Rate</div>
@@ -127,6 +164,28 @@ export default function MetricsPage() {
         <div className="no-data">No metrics yet — run some incidents first.</div>
       ) : (
         <>
+          {/* SYSTEM HEALTH SCORE */}
+          {healthScore !== null && (
+            <div className="panel health-score-panel">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 18, padding: '14px 20px' }}>
+                <div>
+                  <div className="scard-label">System Health Score</div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 4 }}>
+                    <span style={{ fontSize: 28, fontWeight: 700, fontFamily: 'var(--font-mono)', color: healthColor }}>{healthScore}</span>
+                    <span className="scard-unit">/100</span>
+                    <span style={{ fontSize: 12, color: healthColor, fontWeight: 600 }}>{healthLabel}</span>
+                  </div>
+                </div>
+                <div style={{ flex: 1, height: 8, background: 'var(--bg-elevated)', borderRadius: 4, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${healthScore}%`, background: healthColor, borderRadius: 4, transition: 'width 1s ease' }} />
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', flexShrink: 0, textAlign: 'right', lineHeight: 1.6 }}>
+                  pass rate · hallucination<br />eval score · latency
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ROW 1: Score Distribution + Severity Breakdown */}
           <div className="charts-row">
             <div className="panel">
