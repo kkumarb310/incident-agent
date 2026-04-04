@@ -119,11 +119,44 @@ export default function ReadmePage({ onNavigate }) {
         </div>
       </div>
 
+      {/* ── STAT CALLOUT BANNER ── */}
+      <div className="rm-stat-banner">
+        <div className="rm-stat-item">
+          <div className="rm-stat-val" style={{ color: 'var(--accent)' }}>5×</div>
+          <div className="rm-stat-label">Faster incident diagnosis than manual triage</div>
+        </div>
+        <div className="rm-stat-divider" />
+        <div className="rm-stat-item">
+          <div className="rm-stat-val" style={{ color: 'var(--blue)' }}>&lt;20s</div>
+          <div className="rm-stat-label">End-to-end triage response time</div>
+        </div>
+        <div className="rm-stat-divider" />
+        <div className="rm-stat-item">
+          <div className="rm-stat-val" style={{ color: 'var(--purple)' }}>80%</div>
+          <div className="rm-stat-label">Of incident response automated end-to-end</div>
+        </div>
+        <div className="rm-stat-divider" />
+        <div className="rm-stat-item">
+          <div className="rm-stat-val" style={{ color: 'var(--green)' }}>100%</div>
+          <div className="rm-stat-label">Auditable — every decision logged &amp; scored</div>
+        </div>
+      </div>
+
       {/* ── 1. PROBLEM ── */}
       <Section id="problem" title="Problem Statement" accent="var(--red)">
-        <div className="rm-callout rm-callout-red">
-          The core problem these tools solve: When a production incident fires, they automatically assess severity,
-          identify root cause, and suggest fix steps — which can then be fed into your app via webhooks or APIs.
+        <div className="rm-before-after">
+          <div className="rm-before">
+            <div className="rm-ba-label rm-ba-label-red">Without IncidentAI</div>
+            {['Engineer woken at 2am with no context', 'Manually reads logs, traces dependencies', '10–15 min just to diagnose severity', 'Institutional knowledge locked in senior engineers', 'No audit trail of diagnosis decisions'].map(t => (
+              <div key={t} className="rm-ba-row"><span className="rm-ba-icon red">✕</span>{t}</div>
+            ))}
+          </div>
+          <div className="rm-before">
+            <div className="rm-ba-label rm-ba-label-green">With IncidentAI</div>
+            {['Incident auto-triaged via PagerDuty webhook', 'Severity, root cause, fix steps in &lt;20s', 'Skip diagnosis — go straight to resolution', 'RAG encodes 30 past incidents as shared memory', 'Every triage scored, logged, and auditable'].map(t => (
+              <div key={t} className="rm-ba-row"><span className="rm-ba-icon green">✓</span><span dangerouslySetInnerHTML={{ __html: t }} /></div>
+            ))}
+          </div>
         </div>
       </Section>
 
@@ -504,39 +537,28 @@ export default function ReadmePage({ onNavigate }) {
 
       {/* ── 9. INTEGRATIONS ── */}
       <Section id="integrations" title="Integrations" accent="var(--blue)">
-        <div className="rm-4grid">
-          <div className="rm-detail-card" style={{ borderTopColor: 'var(--green)' }}>
-            <div className="rm-detail-card-title" style={{ color: 'var(--green)' }}>PagerDuty ✅ Live</div>
-            <div className="rm-detail-card-subtitle">POST /webhook/pagerduty</div>
-            <div className="rm-concept-body">
-              Accepts PagerDuty v3 webhook events. Verifies HMAC-SHA256 signature.
-              Auto-triages each incident through the full pipeline. Returns structured results.
-              Test with: python simulate_pagerduty.py
+        <div className="rm-prose"><p>IncidentAI connects to the tools already in your incident response workflow — inbound alerts, communication, ticketing, and observability.</p></div>
+        <div className="rm-integration-grid">
+          {[
+            { name: 'PagerDuty',    icon: '🔔', status: 'live',    color: 'var(--green)',  endpoint: 'POST /webhook/pagerduty',   desc: 'HMAC-verified v3 webhook events. Auto-triages every incoming incident.' },
+            { name: 'REST API',     icon: '⇄',  status: 'live',    color: 'var(--accent)', endpoint: 'POST /triage',              desc: 'Generic endpoint accepts any source. Returns structured JSON — plug into anything.' },
+            { name: 'OpsGenie',    icon: '🚨', status: 'planned', color: 'var(--text-muted)', endpoint: 'POST /webhook/opsgenie', desc: 'IP-allowlist auth, same adapter pattern as PagerDuty.' },
+            { name: 'Slack',        icon: '💬', status: 'planned', color: 'var(--text-muted)', endpoint: '/triage slash command',  desc: 'Triage inline, receive formatted result back to channel.' },
+            { name: 'Jira',         icon: '📋', status: 'planned', color: 'var(--text-muted)', endpoint: 'Bidirectional',          desc: 'Inbound: triage on ticket creation. Outbound: post analysis as comment.' },
+            { name: 'Datadog',      icon: '📈', status: 'planned', color: 'var(--text-muted)', endpoint: 'Monitor alert webhook',  desc: 'Trigger triage directly from Datadog monitor alerts.' },
+          ].map(item => (
+            <div key={item.name} className="rm-integration-card" style={{ borderLeftColor: item.color }}>
+              <div className="rm-integration-top">
+                <span className="rm-integration-icon">{item.icon}</span>
+                <div>
+                  <div className="rm-integration-name">{item.name}</div>
+                  <span className={`rm-integration-badge ${item.status}`}>{item.status === 'live' ? '● Live' : '○ Planned'}</span>
+                </div>
+              </div>
+              <div className="rm-integration-endpoint">{item.endpoint}</div>
+              <div className="rm-integration-desc">{item.desc}</div>
             </div>
-          </div>
-          <div className="rm-detail-card" style={{ borderTopColor: 'var(--text-muted)' }}>
-            <div className="rm-detail-card-title" style={{ color: 'var(--text-muted)' }}>OpsGenie · Planned</div>
-            <div className="rm-detail-card-subtitle">POST /webhook/opsgenie</div>
-            <div className="rm-concept-body">
-              Different payload shape. Uses IP allowlist rather than HMAC. Same adapter pattern as PagerDuty — normalise payload → orchestrate → return result.
-            </div>
-          </div>
-          <div className="rm-detail-card" style={{ borderTopColor: 'var(--text-muted)' }}>
-            <div className="rm-detail-card-title" style={{ color: 'var(--text-muted)' }}>Slack · Planned</div>
-            <div className="rm-detail-card-subtitle">/triage slash command</div>
-            <div className="rm-concept-body">
-              Engineers never leave Slack during incidents. A slash command lets them triage
-              inline and receive a formatted result posted back to the channel.
-            </div>
-          </div>
-          <div className="rm-detail-card" style={{ borderTopColor: 'var(--text-muted)' }}>
-            <div className="rm-detail-card-title" style={{ color: 'var(--text-muted)' }}>Jira / ServiceNow · Planned</div>
-            <div className="rm-detail-card-subtitle">Bidirectional</div>
-            <div className="rm-concept-body">
-              Inbound: triage when ticket created. Outbound: post analysis as a comment on the
-              ticket automatically. Closes the loop with ITSM workflows.
-            </div>
-          </div>
+          ))}
         </div>
       </Section>
 
@@ -574,6 +596,9 @@ export default function ReadmePage({ onNavigate }) {
 
       {/* ── 11. ADVANTAGES ── */}
       <Section id="advantages" title="Advantages" accent="var(--green)">
+        <div className="rm-callout rm-callout-green" style={{ marginBottom: 24, fontSize: 15 }}>
+          IncidentAI handles the <strong>first 80% of incident response automatically</strong> — severity triage, root cause diagnosis, immediate actions, and escalation path — so engineers spend their time fixing, not diagnosing.
+        </div>
         <div className="rm-4grid">
           <Card icon="⚡" title="Speed"
             body="Diagnosis that takes a senior engineer 10 minutes is done in under 20 seconds. Engineers skip straight to resolution."

@@ -1156,6 +1156,76 @@ body {
   margin-left: 10px;
 }
 
+/* ─── README: Stat Callout Banner ────────────────────────────── */
+.rm-stat-banner {
+  display: flex; align-items: center;
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: 12px; margin-bottom: 36px; overflow: hidden;
+}
+.rm-stat-item {
+  flex: 1; padding: 24px 20px; text-align: center;
+}
+.rm-stat-val {
+  font-size: 38px; font-weight: 900; font-family: var(--font-mono);
+  letter-spacing: -1px; line-height: 1; margin-bottom: 6px;
+}
+.rm-stat-label {
+  font-size: 11.5px; color: var(--text-muted); line-height: 1.4; max-width: 120px; margin: 0 auto;
+}
+.rm-stat-divider {
+  width: 1px; height: 60px; background: var(--border); flex-shrink: 0;
+}
+
+/* ─── README: Before/After ────────────────────────────────────── */
+.rm-before-after {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 4px;
+}
+.rm-before {
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 18px 20px;
+}
+.rm-ba-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;
+  margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border);
+}
+.rm-ba-label-red   { color: var(--red); }
+.rm-ba-label-green { color: var(--green); }
+.rm-ba-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 10px;
+}
+.rm-ba-icon { font-size: 12px; font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+.rm-ba-icon.red   { color: var(--red); }
+.rm-ba-icon.green { color: var(--green); }
+
+/* ─── README: Integration Grid ────────────────────────────────── */
+.rm-integration-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 4px;
+}
+.rm-integration-card {
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-left: 3px solid; border-radius: 0 8px 8px 0;
+  padding: 16px; display: flex; flex-direction: column; gap: 8px;
+  transition: background 0.15s;
+}
+.rm-integration-card:hover { background: var(--bg-elevated); }
+.rm-integration-top { display: flex; align-items: center; gap: 10px; }
+.rm-integration-icon { font-size: 20px; }
+.rm-integration-name { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+.rm-integration-badge {
+  font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;
+  padding: 2px 7px; border-radius: 10px;
+}
+.rm-integration-badge.live    { color: var(--green); background: var(--green-dim); }
+.rm-integration-badge.planned { color: var(--text-muted); background: var(--bg-elevated); }
+.rm-integration-endpoint {
+  font-size: 10px; font-family: var(--font-mono); color: var(--accent);
+  background: var(--accent-dim); border-radius: 4px; padding: 2px 7px; width: fit-content;
+}
+.rm-integration-desc { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+@media (max-width: 860px) { .rm-integration-grid { grid-template-columns: 1fr 1fr; } .rm-before-after { grid-template-columns: 1fr; } }
+@media (max-width: 560px) { .rm-integration-grid { grid-template-columns: 1fr; } .rm-stat-banner { flex-wrap: wrap; } }
+
 /* ─── HOME: System Status Banner ─────────────────────────────── */
 .sys-status-bar {
   display: flex; align-items: center; gap: 10px;
