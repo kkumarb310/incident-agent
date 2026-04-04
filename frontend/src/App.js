@@ -8,11 +8,11 @@ import Toast from './components/Toast';
 import './App.css';
 
 const NAV = [
-  { id: 'home',    icon: '⬡', label: 'Overview'  },
-  { id: 'triage',  icon: '⚡', label: 'Triage'    },
-  { id: 'history', icon: '◫', label: 'History'   },
-  { id: 'metrics', icon: '◈', label: 'Metrics'   },
-  { id: 'readme',  icon: '📖', label: 'Docs'      },
+  { id: 'readme',  icon: '◉', label: 'Product Overview' },
+  { id: 'home',    icon: '⬡', label: 'Dashboard'        },
+  { id: 'triage',  icon: '⚡', label: 'Triage'           },
+  { id: 'history', icon: '◫', label: 'History'          },
+  { id: 'metrics', icon: '◈', label: 'Metrics'          },
 ];
 
 const PAGE_MAP = {
@@ -24,7 +24,7 @@ const PAGE_MAP = {
 };
 
 export default function App() {
-  const [page, setPage] = useState('home');
+  const [page, setPage] = useState('readme');
   const CurrentPage = PAGE_MAP[page];
 
   return (

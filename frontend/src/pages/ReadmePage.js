@@ -63,7 +63,8 @@ export default function ReadmePage({ onNavigate }) {
           <span className="nav-dot" style={{ width: 10, height: 10 }} />
           Enterprise AI · Incident Management
         </div>
-        <h1 className="rm-hero-title">IncidentAI</h1>
+        <h1 className="rm-hero-title">Incident<span>AI</span></h1>
+        <div className="rm-hero-tagline">Multi-Agent Incident Intelligence Platform</div>
         <p className="rm-hero-sub">
           An enterprise-grade multi-agent AI system that automatically triages production incidents —
           classifying severity, identifying root causes, and generating step-by-step fix instructions

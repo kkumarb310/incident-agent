@@ -688,44 +688,67 @@ body {
 /* ── Hero ── */
 .rm-hero {
   text-align: center;
-  padding: 52px 24px 44px;
-  margin-bottom: 36px;
-  border-radius: 14px;
-  background: linear-gradient(160deg, rgba(0,212,170,0.05) 0%, transparent 60%);
-  border: 1px solid var(--border);
+  padding: 64px 32px 52px;
+  margin-bottom: 40px;
+  border-radius: 16px;
+  background: linear-gradient(145deg, #0d2e28 0%, #0a1f1c 40%, #081716 100%);
+  border: 1px solid rgba(0,212,170,0.25);
   border-top: 3px solid var(--accent);
   position: relative;
   overflow: hidden;
+  box-shadow: 0 0 60px rgba(0,212,170,0.06), 0 20px 60px rgba(0,0,0,0.4);
 }
 .rm-hero::before {
   content: '';
   position: absolute;
-  top: -60px; left: 50%; transform: translateX(-50%);
-  width: 400px; height: 200px;
-  background: radial-gradient(ellipse, rgba(0,212,170,0.1) 0%, transparent 70%);
+  top: -80px; left: 50%; transform: translateX(-50%);
+  width: 600px; height: 280px;
+  background: radial-gradient(ellipse, rgba(0,212,170,0.15) 0%, transparent 65%);
   pointer-events: none;
 }
+.rm-hero::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0,212,170,0.4), transparent);
+}
 .rm-hero-badge {
-  display: inline-flex; align-items: center; gap: 7px;
-  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;
-  color: var(--accent); background: var(--accent-dim); border: 1px solid var(--accent-border);
-  border-radius: 20px; padding: 4px 14px; margin-bottom: 18px;
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--accent); background: rgba(0,212,170,0.08); border: 1px solid rgba(0,212,170,0.3);
+  border-radius: 20px; padding: 5px 16px; margin-bottom: 24px;
 }
 .rm-hero-title {
-  font-size: 44px; font-weight: 800; letter-spacing: -1px; margin-bottom: 14px;
-  background: linear-gradient(135deg, var(--text-primary) 40%, var(--accent) 100%);
+  font-size: 56px; font-weight: 900; letter-spacing: -2px; margin-bottom: 6px;
+  line-height: 1.05;
+  color: #ffffff;
+  text-shadow: 0 0 40px rgba(0,212,170,0.3);
+}
+.rm-hero-title span {
+  background: linear-gradient(135deg, #00d4aa 0%, #00a8ff 100%);
   -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
 }
-.rm-hero-sub { font-size: 15px; color: var(--text-secondary); line-height: 1.75; max-width: 600px; margin: 0 auto 22px; }
-.rm-hero-pills { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; margin-bottom: 26px; }
-.rm-pill { font-size: 11px; font-weight: 600; padding: 3px 11px; border-radius: 20px; }
-.rm-hero-actions { display: flex; gap: 10px; justify-content: center; }
-.rm-toc-toggle {
-  padding: 9px 20px; border-radius: 6px; font-size: 13px; font-weight: 500;
-  color: var(--text-secondary); border: 1px solid var(--border);
-  background: var(--bg-elevated); cursor: pointer; font-family: var(--font-sans); transition: all 0.15s;
+.rm-hero-tagline {
+  font-size: 12px; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase;
+  color: rgba(0,212,170,0.7); margin-bottom: 20px;
 }
-.rm-toc-toggle:hover { color: var(--accent); border-color: var(--accent-border); background: var(--accent-dim); }
+.rm-hero-sub {
+  font-size: 15px; color: rgba(255,255,255,0.65); line-height: 1.8;
+  max-width: 580px; margin: 0 auto 28px;
+}
+.rm-hero-pills { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 30px; }
+.rm-pill {
+  font-size: 11px; font-weight: 600; padding: 4px 12px; border-radius: 20px;
+  letter-spacing: 0.02em;
+}
+.rm-hero-actions { display: flex; gap: 12px; justify-content: center; }
+.rm-toc-toggle {
+  padding: 10px 22px; border-radius: 8px; font-size: 13px; font-weight: 500;
+  color: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.06); cursor: pointer; font-family: var(--font-sans); transition: all 0.2s;
+  backdrop-filter: blur(4px);
+}
+.rm-toc-toggle:hover { color: var(--accent); border-color: rgba(0,212,170,0.4); background: rgba(0,212,170,0.08); }
 
 /* ── TOC ── */
 .rm-toc {
