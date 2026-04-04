@@ -121,21 +121,9 @@ export default function ReadmePage({ onNavigate }) {
 
       {/* ── 1. PROBLEM ── */}
       <Section id="problem" title="Problem Statement" accent="var(--red)">
-        <div className="rm-prose">
-          <p>
-            When a P1 incident fires at 2am, an on-call engineer faces a high-pressure, time-critical situation
-            with no structured support. They must manually answer four questions:
-          </p>
-        </div>
-        <div className="rm-4grid">
-          <Card icon="🔴" title="How bad is this?" body="Is it P1, P2, or P3? What's the blast radius? Which customers are affected?" accent="var(--red)" />
-          <Card icon="🔍" title="What caused it?" body="Root cause diagnosis requires reading logs, tracing dependencies, and pattern-matching against past incidents." accent="var(--amber)" />
-          <Card icon="⚙" title="What do I do first?" body="Prioritising the right immediate actions under pressure is hard — and expensive if you get it wrong." accent="var(--blue)" />
-          <Card icon="📞" title="Who do I call?" body="Knowing which team to escalate to, and how long to expect resolution, requires institutional knowledge." accent="var(--purple)" />
-        </div>
         <div className="rm-callout rm-callout-red">
-          <strong>The cost:</strong> Mean Time To Resolution (MTTR) is directly tied to revenue loss, SLA breaches, and customer trust.
-          Every minute of a P1 outage at scale costs thousands of dollars. The first 10 minutes — diagnosis — is where the most time is wasted.
+          The core problem these tools solve: When a production incident fires, they automatically assess severity,
+          identify root cause, and suggest fix steps — which can then be fed into your app via webhooks or APIs.
         </div>
       </Section>
 
