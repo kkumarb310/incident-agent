@@ -59,30 +59,51 @@ export default function ReadmePage({ onNavigate }) {
 
       {/* ── HERO ── */}
       <div className="rm-hero">
-        <div className="rm-hero-badge">
-          <span className="nav-dot" style={{ width: 10, height: 10 }} />
-          Enterprise AI · Incident Management
+        {/* Left: branding + CTA */}
+        <div className="rm-hero-left">
+          <div className="rm-hero-badge">
+            <span className="nav-dot" style={{ width: 8, height: 8 }} />
+            Enterprise AI · Incident Management
+          </div>
+          <h1 className="rm-hero-title">Incident<span>AI</span></h1>
+          <div className="rm-hero-tagline">Multi-Agent Incident Intelligence Platform</div>
+          <p className="rm-hero-sub">
+            Automatically triages production incidents — severity, root cause, and fix steps in under 20 seconds.
+          </p>
+          <div className="rm-hero-actions">
+            <button className="btn-run btn-inline" onClick={() => onNavigate('triage')}>⚡ Try Triage</button>
+            <button className="rm-toc-toggle" onClick={() => scrollTo('problem')}>Read docs ↓</button>
+          </div>
         </div>
-        <h1 className="rm-hero-title">Incident<span>AI</span></h1>
-        <div className="rm-hero-tagline">Multi-Agent Incident Intelligence Platform</div>
-        <p className="rm-hero-sub">
-          An enterprise-grade multi-agent AI system that automatically triages production incidents —
-          classifying severity, identifying root causes, and generating step-by-step fix instructions
-          in under 20 seconds.
-        </p>
-        <div className="rm-hero-pills">
-          <Pill label="4 AI Agents"            color="var(--accent)"  />
-          <Pill label="RAG Pipeline"           color="var(--blue)"   />
-          <Pill label="Claude Sonnet 4.6"      color="var(--purple)" />
-          <Pill label="PII Masking"            color="var(--amber)"  />
-          <Pill label="Self-Evaluation"        color="var(--green)"  />
-          <Pill label="Guardrails"             color="var(--red)"    />
-          <Pill label="39 Tests"               color="var(--accent)" />
-          <Pill label="Live on Railway+Netlify" color="var(--blue)"  />
-        </div>
-        <div className="rm-hero-actions">
-          <button className="btn-run btn-inline" onClick={() => onNavigate('triage')}>⚡ Try Triage</button>
-          <button className="rm-toc-toggle" onClick={() => scrollTo('problem')}>Read docs ↓</button>
+
+        {/* Right: stat grid + pills */}
+        <div className="rm-hero-right">
+          <div className="rm-hero-stats-row">
+            <div className="rm-hero-stat">
+              <div className="rm-hero-stat-val" style={{ color: 'var(--accent)' }}>&lt;20s</div>
+              <div className="rm-hero-stat-label">Triage Time</div>
+            </div>
+            <div className="rm-hero-stat">
+              <div className="rm-hero-stat-val" style={{ color: 'var(--blue)' }}>4</div>
+              <div className="rm-hero-stat-label">AI Agents</div>
+            </div>
+            <div className="rm-hero-stat">
+              <div className="rm-hero-stat-val" style={{ color: 'var(--purple)' }}>30</div>
+              <div className="rm-hero-stat-label">RAG Incidents</div>
+            </div>
+            <div className="rm-hero-stat">
+              <div className="rm-hero-stat-val" style={{ color: 'var(--green)' }}>39</div>
+              <div className="rm-hero-stat-label">Tests</div>
+            </div>
+          </div>
+          <div className="rm-hero-pills">
+            <Pill label="RAG Pipeline"           color="var(--blue)"   />
+            <Pill label="Claude Sonnet 4.6"      color="var(--purple)" />
+            <Pill label="PII Masking"            color="var(--amber)"  />
+            <Pill label="Self-Evaluation"        color="var(--green)"  />
+            <Pill label="Guardrails"             color="var(--red)"    />
+            <Pill label="Live on Railway+Netlify" color="var(--accent)" />
+          </div>
         </div>
       </div>
 
