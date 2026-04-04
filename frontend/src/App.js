@@ -13,6 +13,7 @@ const NAV = [
   { id: 'triage',  icon: '⚡', label: 'Triage'           },
   { id: 'history', icon: '◫', label: 'History'          },
   { id: 'metrics', icon: '◈', label: 'Metrics'          },
+  { id: 'apidocs', icon: '⇄', label: 'API Docs', href: 'https://incident-agent-production.up.railway.app/docs' },
 ];
 
 const PAGE_MAP = {
@@ -35,7 +36,19 @@ export default function App() {
           <span className="brand-text">IncidentAI</span>
         </div>
         <nav className="sidebar-nav">
-          {NAV.map(item => (
+          {NAV.map(item => item.href ? (
+            <a
+              key={item.id}
+              className="sidebar-item"
+              href={item.href}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span className="sidebar-icon">{item.icon}</span>
+              <span className="sidebar-label">{item.label}</span>
+              <span className="sidebar-ext">↗</span>
+            </a>
+          ) : (
             <button
               key={item.id}
               className={`sidebar-item ${page === item.id ? 'active' : ''}`}
