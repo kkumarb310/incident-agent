@@ -4,11 +4,13 @@ import TriagePage  from './pages/TriagePage';
 import MetricsPage from './pages/MetricsPage';
 import HistoryPage from './pages/HistoryPage';
 import ReadmePage  from './pages/ReadmePage';
+import LandingPage from './pages/LandingPage';
 import Toast from './components/Toast';
 import './App.css';
 
 const NAV_TOP = [
-  { id: 'readme', icon: '◉', label: 'Product Overview' },
+  { id: 'landing', icon: '◉', label: 'Product Overview' },
+  { id: 'readme',  icon: '⊞', label: 'Docs'             },
 ];
 
 const NAV_APP = [
@@ -23,6 +25,7 @@ const NAV_EXTERNAL = [
 ];
 
 const PAGE_MAP = {
+  landing: LandingPage,
   home:    HomePage,
   triage:  TriagePage,
   history: HistoryPage,
@@ -31,7 +34,7 @@ const PAGE_MAP = {
 };
 
 export default function App() {
-  const [page, setPage] = useState('readme');
+  const [page, setPage] = useState('landing');
   const CurrentPage = PAGE_MAP[page];
 
   return (
