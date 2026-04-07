@@ -1,3 +1,47 @@
+import { useState } from 'react';
+
+function DocsTopNav({ onNavigate, scrollTo, TOC }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  return (
+    <nav className="lp-topnav">
+      <div className="lp-topnav-inner">
+        <button className="lp-topnav-brand" onClick={() => onNavigate('landing')}>
+          <span className="nav-dot" style={{ width: 10, height: 10 }} />
+          <span className="lp-topnav-brand-text">IncidentAI</span>
+        </button>
+
+        <div className="lp-topnav-links">
+          {TOC.map(item => (
+            <button key={item.id} className="lp-topnav-link" onClick={() => scrollTo(item.id)}>
+              {item.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="lp-topnav-ctas">
+          <a className="lp-topnav-link" href="https://incident-agent-production.up.railway.app/docs" target="_blank" rel="noopener noreferrer">API Docs ↗</a>
+          <button className="lp-topnav-link" onClick={() => onNavigate('landing')}>← Home</button>
+          <button className="lp-btn-primary" style={{ padding: '8px 18px', fontSize: 13 }} onClick={() => onNavigate('triage')}>⚡ Try Triage</button>
+        </div>
+
+        <button className="lp-topnav-hamburger" onClick={() => setMenuOpen(o => !o)}>☰</button>
+      </div>
+
+      {menuOpen && (
+        <div className="lp-topnav-mobile">
+          {TOC.map(item => (
+            <button key={item.id} className="lp-topnav-mobile-link" onClick={() => { scrollTo(item.id); setMenuOpen(false); }}>
+              {item.label}
+            </button>
+          ))}
+          <button className="lp-topnav-mobile-link" onClick={() => onNavigate('triage')}>⚡ Try Triage</button>
+          <button className="lp-topnav-mobile-link" onClick={() => onNavigate('landing')}>← Home</button>
+        </div>
+      )}
+    </nav>
+  );
+}
+
 export default function ReadmePage({ onNavigate }) {
 
   const Section = ({ id, title, accent, children }) => (
@@ -57,8 +101,10 @@ export default function ReadmePage({ onNavigate }) {
   return (
     <div className="inner-page rm-page">
 
+      <DocsTopNav onNavigate={onNavigate} scrollTo={scrollTo} TOC={TOC} />
+
       {/* ── HERO ── */}
-      <div className="rm-hero">
+      <div className="rm-hero" style={{ paddingTop: 80 }}>
         {/* Left: branding + CTA */}
         <div className="rm-hero-left">
           <div className="rm-hero-badge">
