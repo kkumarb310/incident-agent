@@ -1835,6 +1835,17 @@ body {
   .lp-hero-stats { flex-direction: column; }
   .lp-hero-stat { border-right: none; border-bottom: 1px solid var(--border); }
   .lp-hero-stat:last-child { border-bottom: none; }
+
+  /* Docs hero — stack on mobile */
+  .rm-hero {
+    grid-template-columns: 1fr;
+    border-left: 3px solid var(--accent);
+  }
+  .rm-hero::before { display: none; }
+  .rm-hero-left { padding: 24px 20px 16px; }
+  .rm-hero-right { padding: 0 20px 24px; }
+  .rm-hero-stats-row { grid-template-columns: repeat(2, 1fr); }
+  .rm-hero-title { font-size: 28px; }
 }
 
 /* ── Docs nav sections dropdown ─────────────────────────────── */
