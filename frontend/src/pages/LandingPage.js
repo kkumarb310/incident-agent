@@ -140,6 +140,61 @@ function DemoModal({ onClose, onNavigate }) {
   );
 }
 
+/* ── Top Nav ─────────────────────────────────────────────────────────────── */
+function TopNav({ onNavigate, openDemo }) {
+  const scrollTo = id => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const NAV_LINKS = [
+    { label: 'Features',     action: () => scrollTo('features')     },
+    { label: 'How It Works', action: () => scrollTo('how-it-works') },
+    { label: 'Integrations', action: () => scrollTo('integrations') },
+    { label: 'FAQ',          action: () => scrollTo('faq')          },
+  ];
+
+  return (
+    <nav className="lp-topnav">
+      <div className="lp-topnav-inner">
+        {/* Brand */}
+        <button className="lp-topnav-brand" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+          <span className="nav-dot" style={{ width: 10, height: 10 }} />
+          <span className="lp-topnav-brand-text">IncidentAI</span>
+        </button>
+
+        {/* Centre links — desktop */}
+        <div className="lp-topnav-links">
+          {NAV_LINKS.map(l => (
+            <button key={l.label} className="lp-topnav-link" onClick={l.action}>{l.label}</button>
+          ))}
+        </div>
+
+        {/* Right CTAs */}
+        <div className="lp-topnav-ctas">
+          <a className="lp-topnav-link" href="https://incident-agent-production.up.railway.app/docs" target="_blank" rel="noopener noreferrer">
+            API Docs ↗
+          </a>
+          <button className="lp-topnav-link" onClick={() => onNavigate('home')}>Open App →</button>
+          <button className="lp-btn-primary" style={{ padding: '8px 18px', fontSize: 13 }} onClick={openDemo}>Get a demo</button>
+        </div>
+
+        {/* Hamburger — mobile */}
+        <button className="lp-topnav-hamburger" onClick={() => setMenuOpen(o => !o)}>☰</button>
+      </div>
+
+      {/* Mobile dropdown */}
+      {menuOpen && (
+        <div className="lp-topnav-mobile">
+          {NAV_LINKS.map(l => (
+            <button key={l.label} className="lp-topnav-mobile-link" onClick={() => { l.action(); setMenuOpen(false); }}>{l.label}</button>
+          ))}
+          <button className="lp-topnav-mobile-link" onClick={() => onNavigate('home')}>Open App →</button>
+          <button className="lp-topnav-mobile-link" onClick={() => { openDemo(); setMenuOpen(false); }}>Get a demo</button>
+        </div>
+      )}
+    </nav>
+  );
+}
+
 /* ── Main Landing Page ───────────────────────────────────────────────────── */
 export default function LandingPage({ onNavigate }) {
   const [showDemo, setShowDemo] = useState(false);
@@ -174,8 +229,10 @@ export default function LandingPage({ onNavigate }) {
     <div className="lp-root">
       {showDemo && <DemoModal onClose={() => setShowDemo(false)} onNavigate={onNavigate} />}
 
+      <TopNav onNavigate={onNavigate} openDemo={openDemo} />
+
       {/* ══ HERO ═══════════════════════════════════════════════════════════ */}
-      <section className="lp-hero">
+      <section className="lp-hero" style={{ paddingTop: 120 }}>
         <Badge>AI SRE</Badge>
         <h1 className="lp-hero-h1">
           AI that <em>resolves incidents</em><br />like your best engineer
@@ -206,7 +263,7 @@ export default function LandingPage({ onNavigate }) {
       </section>
 
       {/* ══ THE SRE THAT DOESN'T SLEEP ═══════════════════════════════════ */}
-      <section className="lp-section lp-section-dark">
+      <section id="features" className="lp-section lp-section-dark">
         <div className="lp-section-inner">
           <div className="lp-eyebrow">Always on</div>
           <h2 className="lp-section-h2">The SRE that doesn't sleep</h2>
@@ -231,7 +288,7 @@ export default function LandingPage({ onNavigate }) {
       </section>
 
       {/* ══ FEATURE SHOWCASE — 4 TABS ════════════════════════════════════ */}
-      <FeatureTabs onNavigate={onNavigate} openDemo={openDemo} />
+      <div id="how-it-works"><FeatureTabs onNavigate={onNavigate} openDemo={openDemo} /></div>
 
       {/* ══ FASTER RESOLUTION. FEWER FIRE DRILLS ════════════════════════ */}
       <section className="lp-section">
@@ -264,7 +321,7 @@ export default function LandingPage({ onNavigate }) {
       </section>
 
       {/* ══ INVESTIGATION DATA SOURCES ═══════════════════════════════════ */}
-      <section className="lp-section">
+      <section id="integrations" className="lp-section">
         <div className="lp-section-inner">
           <div className="lp-eyebrow">How it knows</div>
           <h2 className="lp-section-h2">Connects all your incident signals</h2>
@@ -375,7 +432,7 @@ export default function LandingPage({ onNavigate }) {
       </section>
 
       {/* ══ FAQ ════════════════════════════════════════════════════════════ */}
-      <section className="lp-section lp-section-dark">
+      <section id="faq" className="lp-section lp-section-dark">
         <div className="lp-section-inner">
           <div className="lp-eyebrow">FAQ</div>
           <h2 className="lp-section-h2">Common questions</h2>
