@@ -1,36 +1,62 @@
 import { useState } from 'react';
 
 function DocsTopNav({ onNavigate, scrollTo, TOC }) {
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [sectionsOpen, setSectionsOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   return (
-    <nav className="lp-topnav">
+    <nav className="lp-topnav" style={{ zIndex: 600 }}>
       <div className="lp-topnav-inner">
+
+        {/* Brand */}
         <button className="lp-topnav-brand" onClick={() => onNavigate('landing')}>
           <span className="nav-dot" style={{ width: 10, height: 10 }} />
           <span className="lp-topnav-brand-text">IncidentAI</span>
         </button>
 
-        <div className="lp-topnav-links">
-          {TOC.map(item => (
-            <button key={item.id} className="lp-topnav-link" onClick={() => scrollTo(item.id)}>
-              {item.label}
-            </button>
-          ))}
+        {/* Docs label */}
+        <span className="lp-topnav-link" style={{ color: 'var(--text-muted)', cursor: 'default', padding: '6px 4px' }}>/</span>
+        <span className="lp-topnav-link" style={{ color: 'var(--accent)', cursor: 'default', fontWeight: 700 }}>Docs</span>
+
+        {/* Sections dropdown */}
+        <div className="docs-nav-dropdown" style={{ position: 'relative', marginLeft: 8 }}>
+          <button
+            className="lp-topnav-link docs-nav-sections-btn"
+            onClick={() => setSectionsOpen(o => !o)}
+          >
+            Sections ▾
+          </button>
+          {sectionsOpen && (
+            <div className="docs-nav-dropdown-menu" onMouseLeave={() => setSectionsOpen(false)}>
+              {TOC.map(item => (
+                <button key={item.id} className="docs-nav-dropdown-item"
+                  onClick={() => { scrollTo(item.id); setSectionsOpen(false); }}>
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
-        <div className="lp-topnav-ctas">
-          <a className="lp-topnav-link" href="https://incident-agent-production.up.railway.app/docs" target="_blank" rel="noopener noreferrer">API Docs ↗</a>
+        {/* Right CTAs */}
+        <div className="lp-topnav-ctas" style={{ marginLeft: 'auto' }}>
+          <a className="lp-topnav-link" href="https://incident-agent-production.up.railway.app/docs"
+            target="_blank" rel="noopener noreferrer">API Docs ↗</a>
           <button className="lp-topnav-link" onClick={() => onNavigate('landing')}>← Home</button>
-          <button className="lp-btn-primary" style={{ padding: '8px 18px', fontSize: 13 }} onClick={() => onNavigate('triage')}>⚡ Try Triage</button>
+          <button className="lp-btn-primary" style={{ padding: '8px 18px', fontSize: 13 }}
+            onClick={() => onNavigate('triage')}>⚡ Try Triage</button>
         </div>
 
-        <button className="lp-topnav-hamburger" onClick={() => setMenuOpen(o => !o)}>☰</button>
+        {/* Mobile hamburger */}
+        <button className="lp-topnav-hamburger" onClick={() => setMobileOpen(o => !o)}>☰</button>
       </div>
 
-      {menuOpen && (
+      {/* Mobile dropdown */}
+      {mobileOpen && (
         <div className="lp-topnav-mobile">
           {TOC.map(item => (
-            <button key={item.id} className="lp-topnav-mobile-link" onClick={() => { scrollTo(item.id); setMenuOpen(false); }}>
+            <button key={item.id} className="lp-topnav-mobile-link"
+              onClick={() => { scrollTo(item.id); setMobileOpen(false); }}>
               {item.label}
             </button>
           ))}
@@ -104,7 +130,7 @@ export default function ReadmePage({ onNavigate }) {
       <DocsTopNav onNavigate={onNavigate} scrollTo={scrollTo} TOC={TOC} />
 
       {/* ── HERO ── */}
-      <div className="rm-hero" style={{ paddingTop: 80 }}>
+      <div className="rm-hero" style={{ marginTop: 60 }}>
         {/* Left: branding + CTA */}
         <div className="rm-hero-left">
           <div className="rm-hero-badge">
